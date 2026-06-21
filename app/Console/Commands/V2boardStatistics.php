@@ -55,77 +55,89 @@ class V2boardStatistics extends Command
 
     private function statServer()
     {
-        $createdAt = time();
-        $recordAt = strtotime('-1 day', strtotime(date('Y-m-d')));
-        $statService = new StatisticalService();
-        $statService->setStartAt($recordAt);
-        $statService->setServerStats();
-        $stats = $statService->getStatServer();
-        DB::beginTransaction();
-        foreach ($stats as $stat) {
-            if (!StatServer::insert([
-                'server_id' => $stat['server_id'],
-                'server_type' => $stat['server_type'],
-                'u' => $stat['u'],
-                'd' => $stat['d'],
-                'created_at' => $createdAt,
-                'updated_at' => $createdAt,
-                'record_type' => 'd',
-                'record_at' => $recordAt
-            ])) {
-                DB::rollback();
-                throw new \Exception('stat server fail');
+        try {
+            DB::beginTransaction();
+            $createdAt = time();
+            $recordAt = strtotime('-1 day', strtotime(date('Y-m-d')));
+            $statService = new StatisticalService();
+            $statService->setStartAt($recordAt);
+            $statService->setServerStats();
+            $stats = $statService->getStatServer();
+            foreach ($stats as $stat) {
+                if (!StatServer::insert([
+                    'server_id' => $stat['server_id'],
+                    'server_type' => $stat['server_type'],
+                    'u' => $stat['u'],
+                    'd' => $stat['d'],
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                    'record_type' => 'd',
+                    'record_at' => $recordAt
+                ])) {
+                    throw new \Exception('stat server fail');
+                }
             }
+            DB::commit();
+            $statService->clearStatServer();
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error($e->getMessage(), ['exception' => $e]);
         }
-        DB::commit();
-        $statService->clearStatServer();
     }
 
     private function statUser()
     {
-        $createdAt = time();
-        $recordAt = strtotime('-1 day', strtotime(date('Y-m-d')));
-        $statService = new StatisticalService();
-        $statService->setStartAt($recordAt);
-        $statService->setUserStats();
-        $stats = $statService->getStatUser();
-        DB::beginTransaction();
-        foreach ($stats as $stat) {
-            if (!StatUser::insert([
-                'user_id' => $stat['user_id'],
-                'u' => $stat['u'],
-                'd' => $stat['d'],
-                'server_rate' => $stat['server_rate'],
-                'created_at' => $createdAt,
-                'updated_at' => $createdAt,
-                'record_type' => 'd',
-                'record_at' => $recordAt
-            ])) {
-                DB::rollback();
-                throw new \Exception('stat user fail');
+        try {
+            DB::beginTransaction();
+            $createdAt = time();
+            $recordAt = strtotime('-1 day', strtotime(date('Y-m-d')));
+            $statService = new StatisticalService();
+            $statService->setStartAt($recordAt);
+            $statService->setUserStats();
+            $stats = $statService->getStatUser();
+            foreach ($stats as $stat) {
+                if (!StatUser::insert([
+                    'user_id' => $stat['user_id'],
+                    'u' => $stat['u'],
+                    'd' => $stat['d'],
+                    'server_rate' => $stat['server_rate'],
+                    'created_at' => $createdAt,
+                    'updated_at' => $createdAt,
+                    'record_type' => 'd',
+                    'record_at' => $recordAt
+                ])) {
+                    throw new \Exception('stat user fail');
+                }
             }
+            DB::commit();
+            $statService->clearStatUser();
+        } catch (\Exception $e) {
+            DB::rollback();
+            \Log::error($e->getMessage(), ['exception' => $e]);
         }
-        DB::commit();
-        $statService->clearStatUser();
     }
 
     private function stat()
     {
-        $endAt = strtotime(date('Y-m-d'));
-        $startAt = strtotime('-1 day', $endAt);
-        $statisticalService = new StatisticalService();
-        $statisticalService->setStartAt($startAt);
-        $statisticalService->setEndAt($endAt);
-        $data = $statisticalService->generateStatData();
-        $data['record_at'] = $startAt;
-        $data['record_type'] = 'd';
-        $statistic = Stat::where('record_at', $startAt)
-            ->where('record_type', 'd')
-            ->first();
-        if ($statistic) {
-            $statistic->update($data);
-            return;
+        try {
+            $endAt = strtotime(date('Y-m-d'));
+            $startAt = strtotime('-1 day', $endAt);
+            $statisticalService = new StatisticalService();
+            $statisticalService->setStartAt($startAt);
+            $statisticalService->setEndAt($endAt);
+            $data = $statisticalService->generateStatData();
+            $data['record_at'] = $startAt;
+            $data['record_type'] = 'd';
+            $statistic = Stat::where('record_at', $startAt)
+                ->where('record_type', 'd')
+                ->first();
+            if ($statistic) {
+                $statistic->update($data);
+                return;
+            }
+            Stat::create($data);
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage(), ['exception' => $e]);
         }
-        Stat::create($data);
     }
 }

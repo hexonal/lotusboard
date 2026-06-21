@@ -1,4 +1,4 @@
--- Adminer 4.7.7 MySQL dump
+-- Adminer 4.8.1 MySQL 5.7.29 dump
 
 SET NAMES utf8;
 SET time_zone = '+00:00';
@@ -53,6 +53,24 @@ CREATE TABLE `v2_coupon` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+DROP TABLE IF EXISTS `v2_giftcard`;
+CREATE TABLE `v2_giftcard` (
+                             `id` int(11) NOT NULL AUTO_INCREMENT,
+                             `code` varchar(255) NOT NULL,
+                             `name` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+                             `type` tinyint(1) NOT NULL,
+                             `value` int(11) DEFAULT NULL,
+                             `plan_id` int(11) DEFAULT NULL,
+                             `limit_use` int(11) DEFAULT NULL,
+                             `used_user_ids` varchar(16384) DEFAULT NULL,
+                             `started_at` int(11) NOT NULL,
+                             `ended_at` int(11) NOT NULL,
+                             `created_at` int(11) NOT NULL,
+                             `updated_at` int(11) NOT NULL,
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 DROP TABLE IF EXISTS `v2_invite_code`;
 CREATE TABLE `v2_invite_code` (
                                   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -84,7 +102,7 @@ CREATE TABLE `v2_knowledge` (
 DROP TABLE IF EXISTS `v2_log`;
 CREATE TABLE `v2_log` (
                           `id` int(11) NOT NULL AUTO_INCREMENT,
-                          `title` varchar(255) NOT NULL,
+                          `title` text NOT NULL,
                           `level` varchar(11) DEFAULT NULL,
                           `host` varchar(255) DEFAULT NULL,
                           `uri` varchar(255) NOT NULL,
@@ -152,7 +170,9 @@ CREATE TABLE `v2_order` (
                             `created_at` int(11) NOT NULL,
                             `updated_at` int(11) NOT NULL,
                             PRIMARY KEY (`id`),
-                            UNIQUE KEY `trade_no` (`trade_no`)
+                            UNIQUE KEY `trade_no` (`trade_no`),
+                            INDEX idx_user (`user_id`),
+                            INDEX idx_user_status (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
@@ -180,6 +200,7 @@ CREATE TABLE `v2_plan` (
                            `id` int(11) NOT NULL AUTO_INCREMENT,
                            `group_id` int(11) NOT NULL,
                            `transfer_enable` int(11) NOT NULL,
+                           `device_limit` int(11) DEFAULT NULL,
                            `name` varchar(255) NOT NULL,
                            `speed_limit` int(11) DEFAULT NULL,
                            `show` tinyint(1) NOT NULL DEFAULT '0',
@@ -212,9 +233,36 @@ CREATE TABLE `v2_server_group` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
+DROP TABLE IF EXISTS `v2_server_tuic`;
+CREATE TABLE `v2_server_tuic` (
+                                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                                      `group_id` varchar(255) NOT NULL,
+                                      `route_id` varchar(255) DEFAULT NULL,
+                                      `name` varchar(255) NOT NULL,
+                                      `parent_id` int(11) DEFAULT NULL,
+                                      `host` varchar(255) NOT NULL,
+                                      `port` varchar(11) NOT NULL,
+                                      `server_port` int(11) NOT NULL,
+                                      `tags` varchar(255) DEFAULT NULL,
+                                      `rate` varchar(11) NOT NULL,
+                                      `show` tinyint(1) NOT NULL DEFAULT '0',
+                                      `sort` int(11) DEFAULT NULL,
+                                      `server_name` varchar(64) DEFAULT NULL,
+                                      `insecure` tinyint(1) NOT NULL DEFAULT '0',
+                                      `disable_sni` tinyint(1) NOT NULL DEFAULT '0',
+                                      `udp_relay_mode` varchar(64) DEFAULT NULL,
+                                      `zero_rtt_handshake` tinyint(1) NOT NULL DEFAULT '0',
+                                      `congestion_control` varchar(64) DEFAULT NULL,
+                                      `created_at` int(11) NOT NULL,
+                                      `updated_at` int(11) NOT NULL,
+                                      PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 DROP TABLE IF EXISTS `v2_server_hysteria`;
 CREATE TABLE `v2_server_hysteria` (
                                       `id` int(11) NOT NULL AUTO_INCREMENT,
+                                      `version` int(11) NOT NULL,
                                       `group_id` varchar(255) NOT NULL,
                                       `route_id` varchar(255) DEFAULT NULL,
                                       `name` varchar(255) NOT NULL,
@@ -228,6 +276,8 @@ CREATE TABLE `v2_server_hysteria` (
                                       `sort` int(11) DEFAULT NULL,
                                       `up_mbps` int(11) NOT NULL,
                                       `down_mbps` int(11) NOT NULL,
+                                      `obfs` varchar(64) DEFAULT NULL,
+                                      `obfs_password` varchar(255) DEFAULT NULL,
                                       `server_name` varchar(64) DEFAULT NULL,
                                       `insecure` tinyint(1) NOT NULL DEFAULT '0',
                                       `created_at` int(11) NOT NULL,
@@ -242,7 +292,7 @@ CREATE TABLE `v2_server_route` (
                                    `remarks` varchar(255) NOT NULL,
                                    `match` text NOT NULL,
                                    `action` varchar(11) NOT NULL,
-                                   `action_value` varchar(255) DEFAULT NULL,
+                                   `action_value` text DEFAULT NULL,
                                    `created_at` int(11) NOT NULL,
                                    `updated_at` int(11) NOT NULL,
                                    PRIMARY KEY (`id`)
@@ -284,6 +334,8 @@ CREATE TABLE `v2_server_trojan` (
                                     `host` varchar(255) NOT NULL COMMENT '主机名',
                                     `port` varchar(11) NOT NULL COMMENT '连接端口',
                                     `server_port` int(11) NOT NULL COMMENT '服务端口',
+                                    `network` varchar(11) DEFAULT NULL COMMENT '传输方式',
+                                    `network_settings` text COMMENT '传输配置',
                                     `allow_insecure` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否允许不安全',
                                     `server_name` varchar(255) DEFAULT NULL,
                                     `show` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否显示',
@@ -292,6 +344,33 @@ CREATE TABLE `v2_server_trojan` (
                                     `updated_at` int(11) NOT NULL,
                                     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='trojan伺服器表';
+
+
+DROP TABLE IF EXISTS `v2_server_vless`;
+CREATE TABLE `v2_server_vless` (
+                                   `id` int(11) NOT NULL AUTO_INCREMENT,
+                                   `group_id` text NOT NULL,
+                                   `route_id` text,
+                                   `name` varchar(255) NOT NULL,
+                                   `parent_id` int(11) DEFAULT NULL,
+                                   `host` varchar(255) NOT NULL,
+                                   `port` int(11) NOT NULL,
+                                   `server_port` int(11) NOT NULL,
+                                   `tls` tinyint(1) NOT NULL,
+                                   `tls_settings` text,
+                                   `flow` varchar(64) DEFAULT NULL,
+                                   `network` varchar(11) NOT NULL,
+                                   `network_settings` text,
+                                   `encryption` varchar(64) DEFAULT NULL,
+                                   `encryption_settings` text,
+                                   `tags` text,
+                                   `rate` varchar(11) NOT NULL,
+                                   `show` tinyint(1) NOT NULL DEFAULT '0',
+                                   `sort` int(11) DEFAULT NULL,
+                                   `created_at` int(11) NOT NULL,
+                                   `updated_at` int(11) NOT NULL,
+                                   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 DROP TABLE IF EXISTS `v2_server_vmess`;
@@ -320,6 +399,65 @@ CREATE TABLE `v2_server_vmess` (
                                    PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+DROP TABLE IF EXISTS `v2_server_anytls`;
+CREATE TABLE `v2_server_anytls` (
+                                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                                      `group_id` varchar(255) NOT NULL,
+                                      `route_id` varchar(255) DEFAULT NULL,
+                                      `name` varchar(255) NOT NULL,
+                                      `parent_id` int(11) DEFAULT NULL,
+                                      `host` varchar(255) NOT NULL,
+                                      `port` varchar(11) NOT NULL,
+                                      `server_port` int(11) NOT NULL,
+                                      `tags` varchar(255) DEFAULT NULL,
+                                      `rate` varchar(11) NOT NULL,
+                                      `show` tinyint(1) NOT NULL DEFAULT '0',
+                                      `sort` int(11) DEFAULT NULL,
+                                      `server_name` varchar(64) DEFAULT NULL,
+                                      `insecure` tinyint(1) NOT NULL DEFAULT '0',
+                                      `padding_scheme` text,
+                                      `created_at` int(11) NOT NULL,
+                                      `updated_at` int(11) NOT NULL,
+                                      PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+DROP TABLE IF EXISTS `v2_server_v2node`;
+CREATE TABLE `v2_server_v2node` (
+                                    `id` int(11) NOT NULL AUTO_INCREMENT,
+                                    `group_id` varchar(255) NOT NULL,
+                                    `route_id` varchar(255) DEFAULT NULL,
+                                    `name` varchar(255) NOT NULL,
+                                    `parent_id` int(11) DEFAULT NULL,
+                                    `host` varchar(255) NOT NULL,
+                                    `listen_ip` varchar(255) NOT NULL DEFAULT '0.0.0.0',
+                                    `port` varchar(11) NOT NULL,
+                                    `server_port` int(11) NOT NULL,
+                                    `tags` varchar(255) DEFAULT NULL,
+                                    `rate` varchar(11) NOT NULL,
+                                    `show` tinyint(1) NOT NULL DEFAULT '0',
+                                    `sort` int(11) DEFAULT NULL,
+                                    `protocol` varchar(24) NOT NULL COMMENT '协议类型',
+                                    `tls` tinyint(1) NOT NULL COMMENT 'tls类型',
+                                    `tls_settings` text COMMENT 'tls配置',
+                                    `flow` varchar(64) DEFAULT NULL COMMENT 'vless流控',
+                                    `network` varchar(11) NOT NULL COMMENT '传输类型',
+                                    `network_settings` text COMMENT '传输配置',
+                                    `encryption` varchar(64) DEFAULT NULL COMMENT 'vless加密',
+                                    `encryption_settings` text COMMENT 'vless加密配置',
+                                    `disable_sni` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'tuic禁用sni',
+                                    `udp_relay_mode` varchar(64) DEFAULT NULL COMMENT 'tuic udp中继模式',
+                                    `zero_rtt_handshake` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'tuic 0rtt握手',
+                                    `congestion_control` varchar(64) DEFAULT NULL COMMENT 'tuic拥塞控制',
+                                    `cipher` varchar(64) DEFAULT NULL COMMENT 'shadowsocks加密方式',
+                                    `up_mbps` int(11) NOT NULL COMMENT 'hysteria上行带宽',
+                                    `down_mbps` int(11) NOT NULL COMMENT 'hysteria下行带宽',
+                                    `obfs` varchar(64) DEFAULT NULL COMMENT 'hysteria1混淆密码/hysteria2混淆类型',
+                                    `obfs_password` varchar(255) DEFAULT NULL COMMENT 'hysteria2混淆密码',
+                                    `padding_scheme` text COMMENT 'anytls填充配置',
+                                    `created_at` int(11) NOT NULL,
+                                    `updated_at` int(11) NOT NULL,
+                                    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DROP TABLE IF EXISTS `v2_stat`;
 CREATE TABLE `v2_stat` (
@@ -386,7 +524,7 @@ CREATE TABLE `v2_ticket` (
                              `subject` varchar(255) NOT NULL,
                              `level` tinyint(1) NOT NULL,
                              `status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0:已开启 1:已关闭',
-                             `reply_status` tinyint(1) NOT NULL DEFAULT '1' COMMENT '0:待回复 1:已回复',
+                             `reply_status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0:待回复 1:已回复',
                              `created_at` int(11) NOT NULL,
                              `updated_at` int(11) NOT NULL,
                              PRIMARY KEY (`id`)
@@ -423,6 +561,7 @@ CREATE TABLE `v2_user` (
                            `u` bigint(20) NOT NULL DEFAULT '0',
                            `d` bigint(20) NOT NULL DEFAULT '0',
                            `transfer_enable` bigint(20) NOT NULL DEFAULT '0',
+                           `device_limit` int(11) DEFAULT NULL,
                            `banned` tinyint(1) NOT NULL DEFAULT '0',
                            `is_admin` tinyint(1) NOT NULL DEFAULT '0',
                            `last_login_at` int(11) DEFAULT NULL,
@@ -432,6 +571,7 @@ CREATE TABLE `v2_user` (
                            `group_id` int(11) DEFAULT NULL,
                            `plan_id` int(11) DEFAULT NULL,
                            `speed_limit` int(11) DEFAULT NULL,
+                           `auto_renewal` tinyint(4) DEFAULT '0',
                            `remind_expire` tinyint(4) DEFAULT '1',
                            `remind_traffic` tinyint(4) DEFAULT '1',
                            `token` char(32) NOT NULL,
@@ -440,8 +580,9 @@ CREATE TABLE `v2_user` (
                            `created_at` int(11) NOT NULL,
                            `updated_at` int(11) NOT NULL,
                            PRIMARY KEY (`id`),
-                           UNIQUE KEY `email` (`email`)
+                           UNIQUE KEY `email` (`email`),
+                           UNIQUE KEY `token` (`token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
--- 2023-05-23 17:01:12
+-- 2025-09-12 10:05:00

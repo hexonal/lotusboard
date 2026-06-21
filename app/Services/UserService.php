@@ -53,6 +53,7 @@ class UserService
     public function getResetDay(User $user)
     {
         if (!isset($user->plan)) {
+            if ($user->plan_id === NULL) return null;
             $user->plan = Plan::find($user->plan_id);
         }
         if ($user->expired_at <= time() || $user->expired_at === NULL) return null;
@@ -99,6 +100,49 @@ class UserService
         return null;
     }
 
+    public function getResetPeriod(User $user)
+    {
+        if ($user->plan_id === NULL) return null;
+        $plan = Plan::find($user->plan_id);
+        if ($user->expired_at <= time() || $user->expired_at === NULL) return null;
+        // if reset method is not reset
+        if ($plan->reset_traffic_method === 2) return null;
+        switch (true) {
+            case ($plan->reset_traffic_method === NULL) : {
+                $resetTrafficMethod = config('v2board.reset_traffic_method', 0);
+                switch ((int)$resetTrafficMethod) {
+                    case 0:
+                        return 1;
+                    case 1:
+                        return 30;
+                    case 2:
+                        return null;
+                    case 3:
+                        return 12;
+                    case 4:
+                        return 365;
+                }
+                break;
+            }
+            case ($plan->reset_traffic_method === 0): {
+                return 1;
+            }
+            case ($plan->reset_traffic_method === 1): {
+                return 30;
+            }
+            case ($plan->reset_traffic_method === 2): {
+                return null;
+            }
+            case ($plan->reset_traffic_method === 3): {
+                return 12;
+            }
+            case ($plan->reset_traffic_method === 4): {
+                return 365;
+            }
+        }    
+        return null;
+    }
+
     public function isAvailable(User $user)
     {
         if (!$user->banned && $user->transfer_enable && ($user->expired_at > time() || $user->expired_at === NULL)) {
@@ -112,9 +156,22 @@ class UserService
         return User::whereRaw('u + d < transfer_enable')
             ->where(function ($query) {
                 $query->where('expired_at', '>=', time())
-                    ->orWhere('expired_at', NULL);
+                ->orWhereNull('expired_at');
             })
             ->where('banned', 0)
+            ->get();
+    }
+
+    public function getDeviceLimitedUsers()
+    {
+        return User::whereRaw('u + d < transfer_enable')
+            ->where(function ($query) {
+                $query->where('expired_at', '>=', time())
+                ->orWhereNull('expired_at');
+            })
+            ->where('banned', 0)
+            ->where('device_limit','>', 0)
+            ->select('id')
             ->get();
     }
 
@@ -157,29 +214,22 @@ class UserService
         return true;
     }
 
-    public function isNotCompleteOrderByUserId(int $userId):bool
+    public function isNotCompleteOrderByUserId(int $userId): bool
     {
-        $order = Order::whereIn('status', [0, 1])
-            ->where('user_id', $userId)
-            ->first();
-        if (!$order) {
-            return false;
-        }
-        return true;
+        return Order::where('user_id', $userId)
+            ->whereIn('status', [0, 1])
+            ->exists();
     }
 
     public function trafficFetch(array $server, string $protocol, array $data)
     {
-        $statService = new StatisticalService();
-        $statService->setStartAt(strtotime(date('Y-m-d')));
-        $statService->setUserStats();
-        $statService->setServerStats();
-        foreach (array_keys($data) as $userId) {
-            $u = $data[$userId][0];
-            $d = $data[$userId][1];
-            TrafficFetchJob::dispatch($u, $d, $userId, $server, $protocol);
-            $statService->statServer($server['id'], $protocol, $u, $d);
-            $statService->statUser($server['rate'], $userId, $u, $d);
-        }
+        TrafficFetchJob::dispatch($data, $server, $protocol);
+        StatUserJob::dispatch($data, $server, $protocol, 'd');
+        StatServerJob::dispatch($data, $server, $protocol, 'd');
+    }
+
+    public static function getMaxId()
+    {
+        return User::max('id');
     }
 }

@@ -683,3 +683,176 @@ CREATE TABLE `v2_log` (
                           `updated_at` int(11) NOT NULL,
                           PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_log`
+    CHANGE `title` `title` text COLLATE 'utf8mb4_general_ci' NOT NULL AFTER `id`;
+
+CREATE TABLE `v2_server_vless` (
+                                   `id` int(11) NOT NULL AUTO_INCREMENT,
+                                   `group_id` text NOT NULL,
+                                   `route_id` text,
+                                   `name` varchar(255) NOT NULL,
+                                   `parent_id` int(11) DEFAULT NULL,
+                                   `host` varchar(255) NOT NULL,
+                                   `port` int(11) NOT NULL,
+                                   `server_port` int(11) NOT NULL,
+                                   `tls` tinyint(1) NOT NULL,
+                                   `tls_settings` text,
+                                   `flow` varchar(11) DEFAULT NULL,
+                                   `network` varchar(11) NOT NULL,
+                                   `network_settings` text,
+                                   `tags` text,
+                                   `rate` varchar(11) NOT NULL,
+                                   `show` tinyint(1) NOT NULL DEFAULT '0',
+                                   `sort` int(11) DEFAULT NULL,
+                                   `created_at` int(11) NOT NULL,
+                                   `updated_at` int(11) NOT NULL,
+                                   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_server_vless`
+    CHANGE `flow` `flow` varchar(64) COLLATE 'utf8mb4_general_ci' NULL AFTER `tls_settings`;
+
+ALTER TABLE `v2_server_hysteria`
+    ADD `version` int(11) NOT NULL AFTER `id`;
+
+ALTER TABLE `v2_server_hysteria`
+    ADD `obfs` varchar(64) NULL AFTER `down_mbps`,
+    ADD `obfs_password` varchar(255) NULL AFTER `obfs`;
+
+UPDATE `v2_server_vless`
+    SET tls_settings = REPLACE(tls_settings, 'shortId', 'short_id');
+
+ALTER TABLE `v2_plan`
+    ADD `device_limit` int(11) NULL AFTER `transfer_enable`;
+
+ALTER TABLE `v2_user`
+    ADD `device_limit` int(11) NULL AFTER `transfer_enable`;
+
+ALTER TABLE `v2_server_trojan`
+    ADD `network` varchar(11) NULL AFTER `server_port`,
+    ADD `network_settings` text AFTER `network`;
+
+ALTER TABLE `v2_server_hysteria`
+    MODIFY COLUMN `port` VARCHAR(255) NOT NULL;
+
+CREATE TABLE `v2_giftcard` (
+                             `id` int(11) NOT NULL AUTO_INCREMENT,
+                             `code` varchar(255) NOT NULL,
+                             `name` varchar(255) CHARACTER SET utf8mb4 NOT NULL,
+                             `type` tinyint(1) NOT NULL,
+                             `value` int(11) DEFAULT NULL,
+                             `limit_use` int(11) DEFAULT NULL,
+                             `used_user_ids` varchar(255) DEFAULT NULL,
+                             `started_at` int(11) NOT NULL,
+                             `ended_at` int(11) NOT NULL,
+                             `created_at` int(11) NOT NULL,
+                             `updated_at` int(11) NOT NULL,
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+ALTER TABLE `v2_giftcard`
+    ADD `plan_id` int(11) NULL AFTER `value`,
+    CHANGE `used_user_ids` `used_user_ids` varchar(16384) NULL AFTER `limit_use`;
+
+ALTER TABLE `v2_user`
+ADD `auto_renewal` tinyint(4) NOT NULL DEFAULT '0' AFTER `speed_limit`;
+
+ALTER TABLE `v2_ticket`
+CHANGE `reply_status` `reply_status` tinyint(1) NOT NULL DEFAULT '0' COMMENT '0:待回复 1:已回复' AFTER `status`;
+
+CREATE TABLE `v2_server_tuic` (
+                                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                                      `group_id` varchar(255) NOT NULL,
+                                      `route_id` varchar(255) DEFAULT NULL,
+                                      `name` varchar(255) NOT NULL,
+                                      `parent_id` int(11) DEFAULT NULL,
+                                      `host` varchar(255) NOT NULL,
+                                      `port` varchar(11) NOT NULL,
+                                      `server_port` int(11) NOT NULL,
+                                      `tags` varchar(255) DEFAULT NULL,
+                                      `rate` varchar(11) NOT NULL,
+                                      `show` tinyint(1) NOT NULL DEFAULT '0',
+                                      `sort` int(11) DEFAULT NULL,
+                                      `server_name` varchar(64) DEFAULT NULL,
+                                      `insecure` tinyint(1) NOT NULL DEFAULT '0',
+                                      `disable_sni` tinyint(1) NOT NULL DEFAULT '0',
+                                      `udp_relay_mode` varchar(64) DEFAULT NULL,
+                                      `zero_rtt_handshake` tinyint(1) NOT NULL DEFAULT '0',
+                                      `congestion_control` varchar(64) DEFAULT NULL,
+                                      `created_at` int(11) NOT NULL,
+                                      `updated_at` int(11) NOT NULL,
+                                      PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `v2_server_anytls` (
+                                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                                      `group_id` varchar(255) NOT NULL,
+                                      `route_id` varchar(255) DEFAULT NULL,
+                                      `name` varchar(255) NOT NULL,
+                                      `parent_id` int(11) DEFAULT NULL,
+                                      `host` varchar(255) NOT NULL,
+                                      `port` varchar(11) NOT NULL,
+                                      `server_port` int(11) NOT NULL,
+                                      `tags` varchar(255) DEFAULT NULL,
+                                      `rate` varchar(11) NOT NULL,
+                                      `show` tinyint(1) NOT NULL DEFAULT '0',
+                                      `sort` int(11) DEFAULT NULL,
+                                      `server_name` varchar(64) DEFAULT NULL,
+                                      `insecure` tinyint(1) NOT NULL DEFAULT '0',
+                                      `padding_scheme` text,
+                                      `created_at` int(11) NOT NULL,
+                                      `updated_at` int(11) NOT NULL,
+                                      PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_user`
+ADD UNIQUE `token` (`token`);
+
+ALTER TABLE `v2_order` 
+ADD INDEX idx_user (`user_id`),
+ADD INDEX idx_user_status (`user_id`, `status`);
+
+ALTER TABLE `v2_server_vless`
+ADD `encryption` varchar(64) COLLATE 'utf8mb4_general_ci' NULL AFTER `network_settings`,
+ADD `encryption_settings` text COLLATE 'utf8mb4_general_ci' NULL AFTER `encryption`;
+
+CREATE TABLE `v2_server_v2node` (
+                                    `id` int(11) NOT NULL AUTO_INCREMENT,
+                                    `group_id` varchar(255) NOT NULL,
+                                    `route_id` varchar(255) DEFAULT NULL,
+                                    `name` varchar(255) NOT NULL,
+                                    `parent_id` int(11) DEFAULT NULL,
+                                    `host` varchar(255) NOT NULL,
+                                    `listen_ip` varchar(255) NOT NULL DEFAULT '0.0.0.0',
+                                    `port` varchar(11) NOT NULL,
+                                    `server_port` int(11) NOT NULL,
+                                    `tags` varchar(255) DEFAULT NULL,
+                                    `rate` varchar(11) NOT NULL,
+                                    `show` tinyint(1) NOT NULL DEFAULT '0',
+                                    `sort` int(11) DEFAULT NULL,
+                                    `protocol` varchar(24) NOT NULL COMMENT '协议类型',
+                                    `tls` tinyint(1) NOT NULL COMMENT 'tls类型',
+                                    `tls_settings` text COMMENT 'tls配置',
+                                    `flow` varchar(64) DEFAULT NULL COMMENT 'vless流控',
+                                    `network` varchar(11) NOT NULL COMMENT '传输类型',
+                                    `network_settings` text COMMENT '传输配置',
+                                    `encryption` varchar(64) DEFAULT NULL COMMENT 'vless加密',
+                                    `encryption_settings` text COMMENT 'vless加密配置',
+                                    `disable_sni` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'tuic禁用sni',
+                                    `udp_relay_mode` varchar(64) DEFAULT NULL COMMENT 'tuic udp中继模式',
+                                    `zero_rtt_handshake` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'tuic 0rtt握手',
+                                    `congestion_control` varchar(64) DEFAULT NULL COMMENT 'tuic拥塞控制',
+                                    `cipher` varchar(64) DEFAULT NULL COMMENT 'shadowsocks加密方式',
+                                    `up_mbps` int(11) NOT NULL COMMENT 'hysteria上行带宽',
+                                    `down_mbps` int(11) NOT NULL COMMENT 'hysteria下行带宽',
+                                    `obfs` varchar(64) DEFAULT NULL COMMENT 'hysteria1混淆密码/hysteria2混淆类型',
+                                    `obfs_password` varchar(255) DEFAULT NULL COMMENT 'hysteria2混淆密码',
+                                    `padding_scheme` text COMMENT 'anytls填充配置',
+                                    `created_at` int(11) NOT NULL,
+                                    `updated_at` int(11) NOT NULL,
+                                    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE `v2_server_route`
+CHANGE `action_value` `action_value` text NULL AFTER `action`;
