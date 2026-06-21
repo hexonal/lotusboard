@@ -7,7 +7,16 @@
 /vendor
 .env
 .env.backup
+.env.backup.*
 .phpunit.result.cache
+*.bak
+*.bak.*
+*.bak_*
+*.bak-*
+core
+/resources/rules/backups/
+/resources/rules-backup-*/
+/resources/rules.backup-*/
 .idea
 .lock
 Homestead.json

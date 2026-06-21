@@ -2,15 +2,15 @@ mixed-port: 7890
 allow-lan: false
 mode: rule
 log-level: info
-ipv6: true
+ipv6: false
 proxy-groups:
     - { name: Switcher, type: select, proxies: ['Auto'] }
-    - { name: Auto, type: fallback, proxies: [], url: "http://cp.cloudflare.com/", interval: 7200 }
+    - { name: Auto, type: fallback, proxies: [], url: "https://www.gstatic.com/generate_204", interval: 7200 }
 
 dns:
   enable: true
   listen: 0.0.0.0:8853
-  ipv6: true
+  ipv6: false
   default-nameserver:
     - 223.5.5.5
     - 119.29.29.29
@@ -33,14 +33,14 @@ dns:
 proxies:
 
 rules:
+  - DOMAIN,invite.linuxdo.org,DIRECT
+
   # 自定义规则
   ## 您可以在此处插入您补充的自定义规则（请注意保持缩进）
 
-  # Google 中国服务
-  - DOMAIN-SUFFIX,services.googleapis.cn,Switcher
-  - DOMAIN-SUFFIX,xn--ngstr-lra8j.com,Switcher
+  # Google 中国服务 - 已移除，由 google.yaml RULE-SET 处理（包含 googleapis.cn）
 
-  # Apple
+  # Apple 安全浏览服务 - 有意覆盖 google.yaml，使用 DIRECT 以提升性能
   - DOMAIN,safebrowsing.urlsec.qq.com,DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
   - DOMAIN,safebrowsing.googleapis.com,DIRECT # 如果您并不信任此服务提供商或防止其下载消耗过多带宽资源，可以进入 Safari 设置，关闭 Fraudulent Website Warning 功能，并使用 REJECT 策略。
   - DOMAIN,developer.apple.com,Switcher
@@ -202,11 +202,9 @@ rules:
   - DOMAIN-SUFFIX,zimuzu.tv,DIRECT
   - DOMAIN-SUFFIX,zoho.com,DIRECT
 
-  # 抗 DNS 污染
+  # 抗 DNS 污染 - Google/YouTube 相关已移除，由 RULE-SET 和 DNS fallback-filter 处理
   - DOMAIN-KEYWORD,amazon,Switcher
-  - DOMAIN-KEYWORD,google,Switcher
-  - DOMAIN-KEYWORD,gmail,Switcher
-  - DOMAIN-KEYWORD,youtube,Switcher
+  # google, gmail, youtube 关键字已移除 - 由对应 RULE-SET 处理
   - DOMAIN-KEYWORD,facebook,Switcher
   - DOMAIN-SUFFIX,fb.me,Switcher
   - DOMAIN-SUFFIX,fbcdn.net,Switcher
@@ -228,7 +226,7 @@ rules:
   - DOMAIN-KEYWORD,adservice,REJECT
   - DOMAIN-SUFFIX,appsflyer.com,REJECT
   - DOMAIN-KEYWORD,domob,REJECT
-  - DOMAIN-SUFFIX,doubleclick.net,REJECT
+  # doubleclick.net 已移除 - 该域名既用于广告也用于 Google 服务，通过 RULE-SET 处理
   - DOMAIN-KEYWORD,duomeng,REJECT
   - DOMAIN-KEYWORD,dwtrack,REJECT
   - DOMAIN-KEYWORD,guanggao,REJECT
@@ -337,7 +335,7 @@ rules:
   - DOMAIN-SUFFIX,gabia.net,Switcher
   - DOMAIN-SUFFIX,geni.us,Switcher
   - DOMAIN-SUFFIX,gfx.ms,Switcher
-  - DOMAIN-SUFFIX,ggpht.com,Switcher
+  # ggpht.com 已移除 - Google 图片托管由 google.yaml RULE-SET 处理
   - DOMAIN-SUFFIX,ghostnoteapp.com,Switcher
   - DOMAIN-SUFFIX,git.io,Switcher
   - DOMAIN-KEYWORD,github,Switcher
@@ -350,7 +348,7 @@ rules:
   - DOMAIN-SUFFIX,goodreaders.com,Switcher
   - DOMAIN-SUFFIX,goodreads.com,Switcher
   - DOMAIN-SUFFIX,gravatar.com,Switcher
-  - DOMAIN-SUFFIX,gstatic.com,Switcher
+  # gstatic.com 已移除 - Google 静态资源由 google.yaml RULE-SET 处理
   - DOMAIN-SUFFIX,gvt0.com,Switcher
   - DOMAIN-SUFFIX,hockeyapp.net,Switcher
   - DOMAIN-SUFFIX,hotmail.com,Switcher
@@ -517,7 +515,7 @@ rules:
   - DOMAIN-SUFFIX,yimg.com,Switcher
   - DOMAIN-SUFFIX,ying.com,Switcher
   - DOMAIN-SUFFIX,yoyo.org,Switcher
-  - DOMAIN-SUFFIX,ytimg.com,Switcher
+  # ytimg.com 已移除 - YouTube 图片由 YouTube.yaml RULE-SET 处理
 
   # Telegram
   - DOMAIN-SUFFIX,telegra.ph,Switcher
@@ -554,8 +552,11 @@ rules:
   # LAN
   - DOMAIN,injections.adguard.org,DIRECT
   - DOMAIN,local.adguard.org,DIRECT
+  - DOMAIN-SUFFIX,coredevice.local,DIRECT
+  - DOMAIN,iphone.coredevice.local,DIRECT
   - DOMAIN-SUFFIX,local,DIRECT
   - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,169.254.0.0/16,DIRECT,no-resolve
   - IP-CIDR,172.16.0.0/12,DIRECT
   - IP-CIDR,192.168.0.0/16,DIRECT
   - IP-CIDR,10.0.0.0/8,DIRECT

@@ -96,6 +96,9 @@ class General
                 $tlsSettings = $server['tlsSettings'];
                 if (isset($tlsSettings['serverName']) && !empty($tlsSettings['serverName']))
                     $config['sni'] = $tlsSettings['serverName'];
+                if (isset($tlsSettings['allowInsecure']) && (string)$tlsSettings['allowInsecure'] === '1') {
+                    $config['allowInsecure'] = '1';
+                }
             }
         }
         if ((string)$server['network'] === 'tcp') {
@@ -112,6 +115,14 @@ class General
         if ((string)$server['network'] === 'grpc') {
             $grpcSettings = $server['networkSettings'];
             if (isset($grpcSettings['serviceName'])) $config['path'] = $grpcSettings['serviceName'];
+            // Shadowrocket compatibility: fill vmess host for grpc over tls.
+            if (empty($config['host'])) {
+                if (!empty($config['sni'])) {
+                    $config['host'] = $config['sni'];
+                } else {
+                    $config['host'] = $server['host'];
+                }
+            }
         }
         return "vmess://" . base64_encode(json_encode($config)) . "\r\n";
     }
