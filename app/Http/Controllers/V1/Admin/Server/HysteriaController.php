@@ -44,13 +44,16 @@ class HysteriaController extends Controller
             abort(404, '服务器不存在');
         }
 
-        if (isset($params['obfs'])) {
-            if (!isset($params['obfs_password'])) {
-                // 编辑场景沿用已有密码,避免覆盖在用客户端;仅新建/无历史值时生成安全随机
-                $params['obfs_password'] = $existing->obfs_password ?? \Illuminate\Support\Str::random(16);
+        // 只在请求显式包含 obfs key 时才规范化 obfs_password,
+        // 避免编辑表单未传 obfs 字段时把现网 obfs/obfs_password 清空
+        if ($request->has('obfs')) {
+            if (isset($params['obfs'])) {
+                if (!isset($params['obfs_password'])) {
+                    $params['obfs_password'] = $existing->obfs_password ?? \Illuminate\Support\Str::random(16);
+                }
+            } else {
+                $params['obfs_password'] = null;
             }
-        } else {
-            $params['obfs_password'] = null;
         }
 
         if ($isEdit) {

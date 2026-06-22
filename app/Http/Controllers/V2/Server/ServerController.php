@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\V2\Server;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\V1\Server\Concerns\EtagHelpers;
 use App\Services\ServerService;
 use Illuminate\Http\Request;
 use App\Utils\Helper;
 
 class ServerController extends Controller
 {
+    use EtagHelpers;
+
     private $nodeInfo;
     private $nodeId;
     private $serverService;
@@ -62,11 +65,10 @@ class ServerController extends Controller
             $response['server_key'] = Helper::getServerKey($this->nodeInfo->created_at, 32);
         }
 
-        if ($this->nodeInfo->up_mbps == 0 && $this->nodeInfo->down_mbps == 0) {
-            $response['ignore_client_bandwidth'] = true;
-        } else {
-            $response['ignore_client_bandwidth'] = false;
-        }
+        // 仅 hysteria 类协议有 ignore_client_bandwidth 语义,且 null 不应当 0 对待
+        $response['ignore_client_bandwidth'] = $this->nodeInfo->protocol === 'hysteria2'
+            && (int)$this->nodeInfo->up_mbps === 0
+            && (int)$this->nodeInfo->down_mbps === 0;
 
         $response['base_config'] = [
             'push_interval' => (int)config('v2board.server_push_interval', 60),
@@ -79,18 +81,9 @@ class ServerController extends Controller
             $response['routes'] = $this->serverService->getRoutes($this->nodeInfo['route_id']);
         }
 
-        $rsp = json_encode($response);
-        $eTag = sha1($rsp);
-
-        // ETag 按逗号 split + 去引号 + hash_equals
-        $header = (string)$request->header('If-None-Match', '');
-        if ($header !== '') {
-            foreach (explode(',', $header) as $token) {
-                $token = trim($token, " \t\"");
-                if ($token !== '' && hash_equals($eTag, $token)) {
-                    return response('', 304)->header('ETag', "\"{$eTag}\"");
-                }
-            }
+        $eTag = sha1(json_encode($response));
+        if ($this->ifNoneMatchHit($request, $eTag)) {
+            return response('', 304)->header('ETag', "\"{$eTag}\"");
         }
 
         return response($response)->header('ETag', "\"{$eTag}\"");

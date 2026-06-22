@@ -308,7 +308,7 @@ class Helper
             "quicSecurity" => "none",
             "serviceName" => "",
             "security" => $server['tls'] != 0 ? ($server['tls'] == 2 ? "reality" : "tls") : "",
-            "flow" => $server['flow'],
+            "flow" => $server['flow'] ?? '',
             "fp" => $tlsSettings['fingerprint'] ?? 'chrome',
         ];
 
@@ -352,7 +352,7 @@ class Helper
 
     public static function buildTrojanUri($password, $server)
     {
-        $tlsSettings = $server['tls_settings'] ?? [];
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
         $config = [
             'allowInsecure' => $server['allow_insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0),
             'peer' => $server['server_name'] ?? ($tlsSettings['server_name'] ?? ''),
@@ -459,14 +459,14 @@ class Helper
 
     public static function buildTuicUri($password, $server)
     {
-        $tlsSettings = $server['tls_settings'] ?? [];
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
         $config = [
-            'sni' => $server['server_name'] ?? ($tlsSettings['server_name'] ?? ''),
-            'alpn'=> 'h3',
-            'congestion_control' => $server['congestion_control'],
-            'allow_insecure' => $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0),
-            'disable_sni' => $server['disable_sni'],
-            'udp_relay_mode' => $server['udp_relay_mode'],
+            'sni' => $server['server_name'] ?? $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '',
+            'alpn' => 'h3',
+            'congestion_control' => $server['congestion_control'] ?? 'bbr',
+            'allow_insecure' => $server['insecure'] ?? $tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0,
+            'disable_sni' => $server['disable_sni'] ?? 0,
+            'udp_relay_mode' => $server['udp_relay_mode'] ?? 'native',
         ];
 
         $remote = self::formatHost($server['host']);
@@ -480,24 +480,26 @@ class Helper
 
     public static function buildAnytlsUri($password, $server)
     {
-        $tlsSettings = $server['tls_settings'] ?? [];
+        // 与 buildVlessUri/buildVmessUri 对齐: 双 key fallback
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
         $config = [
             'type' => $server['network'] ?? 'tcp',
-            'insecure' => $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0),
+            'insecure' => $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0),
             'fp' => $tlsSettings['fingerprint'] ?? 'chrome',
         ];
-        if (isset($server['server_name']) || isset($tlsSettings['server_name'])) {
-            $config['sni'] = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
+        $sni = $server['server_name'] ?? $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+        if ($sni !== '') {
+            $config['sni'] = $sni;
         }
         if (isset($server['tls']) && $server['tls'] == 2) {
             $config['security'] = 'reality';
-            $config['pbk'] = $tlsSettings['public_key'] ?? '';
-            $config['sid'] = $tlsSettings['short_id'] ?? '';
+            $config['pbk'] = $tlsSettings['public_key'] ?? $tlsSettings['publicKey'] ?? '';
+            $config['sid'] = $tlsSettings['short_id'] ?? $tlsSettings['shortId'] ?? '';
         }
         $remote = self::formatHost($server['host']);
         $port = $server['port'];
         $name = self::encodeURIComponent($server['name']);
-        if (isset($server['network']) && isset($server['network_settings'])) {
+        if (isset($server['network']) && (isset($server['network_settings']) || isset($server['networkSettings']))) {
             self::configureNetworkSettings($server, $config);
         }
         $query = http_build_query($config);

@@ -153,12 +153,15 @@ class Stash
 
         if ($server['tls']) {
             $array['tls'] = true;
-            if ($server['tlsSettings']) {
-                $tlsSettings = $server['tlsSettings'];
-                if (isset($tlsSettings['allowInsecure']) && !empty($tlsSettings['allowInsecure']))
-                    $array['skip-cert-verify'] = ($tlsSettings['allowInsecure'] ? true : false);
-                if (isset($tlsSettings['serverName']) && !empty($tlsSettings['serverName']))
-                    $array['servername'] = $tlsSettings['serverName'];
+            // 兼容 snake_case 与 camelCase
+            $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
+            if (!empty($tlsSettings)) {
+                $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0);
+                $array['skip-cert-verify'] = (bool)$allowInsecure;
+                $sni = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+                if ($sni !== '') {
+                    $array['servername'] = $sni;
+                }
             }
         }
         if ($server['network'] === 'tcp') {
@@ -207,16 +210,21 @@ class Stash
 
         if ($server['tls']) {
             $array['tls'] = true;
-            if ($server['tls_settings']) {
-                $tlsSettings = $server['tls_settings'];
-                if (isset($tlsSettings['server_name']) && !empty($tlsSettings['server_name']))
-                   $array['servername'] = $tlsSettings['server_name'];
-                if ($server['tls'] == 2) {
-                   $array['reality-opts'] = [];
-                   $array['reality-opts']['public-key'] = $tlsSettings['public_key'];
-                   $array['reality-opts']['short-id'] = $tlsSettings['short_id'];
+            // 兼容 snake_case 与 camelCase
+            $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
+            if (!empty($tlsSettings)) {
+                $sni = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+                if ($sni !== '') {
+                    $array['servername'] = $sni;
                 }
-                $array['skip-cert-verify'] = ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false;
+                if ($server['tls'] == 2) {
+                    $array['reality-opts'] = [
+                        'public-key' => $tlsSettings['public_key'] ?? $tlsSettings['publicKey'] ?? '',
+                        'short-id' => $tlsSettings['short_id'] ?? $tlsSettings['shortId'] ?? '',
+                    ];
+                }
+                $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0);
+                $array['skip-cert-verify'] = $allowInsecure == 1;
                 $array['client-fingerprint'] = $tlsSettings['fingerprint'] ?? null;
             }
         }

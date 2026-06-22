@@ -79,6 +79,15 @@ class UniProxyController extends Controller
         if (!is_array($data) || empty($data)) {
             return response(['data' => true]);
         }
+        // 过滤畸形 entry: uid 必须数字, value 必须 [u, d] 形态
+        foreach ($data as $uid => $v) {
+            if (!is_numeric($uid) || !is_array($v) || count($v) < 2) {
+                unset($data[$uid]);
+            }
+        }
+        if (empty($data)) {
+            return response(['data' => true]);
+        }
         Cache::put(CacheKey::get('SERVER_' . strtoupper($this->nodeType) . '_ONLINE_USER', $this->nodeInfo->id), count($data), 3600);
         Cache::put(CacheKey::get('SERVER_' . strtoupper($this->nodeType) . '_LAST_PUSH_AT', $this->nodeInfo->id), time(), 3600);
         $userService = new UserService();
@@ -197,6 +206,7 @@ class UniProxyController extends Controller
     // 后端获取配置
     public function config(Request $request)
     {
+        $response = [];
         switch ($this->nodeType) {
             case 'shadowsocks':
                 $response = [
@@ -280,6 +290,8 @@ class UniProxyController extends Controller
                     'padding_scheme' => $this->nodeInfo->padding_scheme
                 ];
                 break;
+            default:
+                abort(400, 'unsupported node_type: ' . $this->nodeType);
         }
         $response['base_config'] = [
             'push_interval' => (int)config('v2board.server_push_interval', 60),
