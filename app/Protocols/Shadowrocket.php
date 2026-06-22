@@ -46,9 +46,10 @@ class Shadowrocket
             'remark' => $server['name'],
             'alterId' => 0
         ];
+        // 提前初始化,避免后续 grpc 分支引用未定义变量
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
         if ($server['tls']) {
             $config['tls'] = 1;
-            $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
             $config['allowInsecure'] = (int)($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0);
             $config['peer'] = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
         }
@@ -76,11 +77,8 @@ class Shadowrocket
             $grpcSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
             if (isset($grpcSettings['serviceName']) && !empty($grpcSettings['serviceName']))
                 $config['path'] = $grpcSettings['serviceName'];
-            if (isset($tlsSettings)) {
-                $config['host'] = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
-            } else {
-                $config['host'] = $server['host'];
-            }
+            $sni = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+            $config['host'] = $sni !== '' ? $sni : $server['host'];
         }
         $query = http_build_query($config, '', '&', PHP_QUERY_RFC3986);
         $uri = "vmess://{$userinfo}?{$query}";

@@ -259,7 +259,6 @@ class Helper
             case 'ws':
                 $config['path'] = $networkSettings['path'] ?? null;
                 $config['host'] = $networkSettings['headers']['Host'] ?? null;
-                isset($networkSettings['security']) && $config['scy'] = $networkSettings['security'];
                 break;
     
             case 'grpc':
@@ -305,8 +304,14 @@ class Helper
             "security" => $server['tls'] != 0 ? ($server['tls'] == 2 ? "reality" : "tls") : "",
             "flow" => $server['flow'],
             "fp" => $tlsSettings['fingerprint'] ?? 'chrome',
-            "insecure" => $tlsSettings['allow_insecure'] ?? 0,
         ];
+
+        // Reality 不允许 insecure；其他 tls 模式同时输出 insecure/allowInsecure 以兼容各客户端
+        if ($server['tls'] != 2) {
+            $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? 0);
+            $config['insecure'] = $allowInsecure;
+            $config['allowInsecure'] = $allowInsecure;
+        }
 
         if ($server['tls']) {
             $tlsSettings = $server['tls_settings'] ?? [];
@@ -324,13 +329,15 @@ class Helper
             }
         }
         if (isset($server['encryption']) && $server['encryption'] == 'mlkem768x25519plus') {
-            $encSettings = $server['encryption_settings'];
-            $enc = 'mlkem768x25519plus.' . ($encSettings['mode'] ?? 'native') . '.' . ($encSettings['rtt'] ?? '1rtt');
-            if (isset($encSettings['client_padding']) && !empty($encSettings['client_padding'])) {
-                $enc .= '.' . $encSettings['client_padding'];
+            $encSettings = $server['encryption_settings'] ?? [];
+            if (!empty($encSettings['password'])) {
+                $enc = 'mlkem768x25519plus.' . ($encSettings['mode'] ?? 'native') . '.' . ($encSettings['rtt'] ?? '1rtt');
+                if (!empty($encSettings['client_padding'])) {
+                    $enc .= '.' . $encSettings['client_padding'];
+                }
+                $enc .= '.' . $encSettings['password'];
+                $config['encryption'] = $enc;
             }
-            $enc .= '.' . ($encSettings['password'] ?? '');
-            $config['encryption'] = $enc;
         }
 
         self::configureNetworkSettings($server, $config);
@@ -369,7 +376,7 @@ class Helper
             }
         }
         $query = http_build_query($config);
-        return "trojan://{$password}@" . self::formatHost($server['host']) . ":{$server['port']}?{$query}#". rawurlencode($server['name']) . "\r\n";
+        return "trojan://" . rawurlencode($password) . "@" . self::formatHost($server['host']) . ":{$server['port']}?{$query}#". rawurlencode($server['name']) . "\r\n";
     }
 
     public static function buildHysteriaUri($password, $server)
@@ -380,18 +387,20 @@ class Helper
         $parts = explode(",", $server['port']);
         $firstPort = strpos($parts[0], '-') !== false ? explode('-', $parts[0])[0] : $parts[0];
 
+        $encodedPassword = rawurlencode($password);
         $uri = $server['version'] == 2 ?
-            "hysteria2://{$password}@{$remote}:{$firstPort}/?insecure={$server['insecure']}&sni={$server['server_name']}" :
-            "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$password}&insecure={$server['insecure']}&peer={$server['server_name']}&upmbps={$server['down_mbps']}&downmbps={$server['up_mbps']}";
+            "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$server['insecure']}&sni={$server['server_name']}" :
+            "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$encodedPassword}&insecure={$server['insecure']}&peer={$server['server_name']}&upmbps={$server['up_mbps']}&downmbps={$server['down_mbps']}";
 
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
             $obfs_password = rawurlencode($server['obfs_password']);
-            $uri .= $server['version'] == 2 ? 
+            $uri .= $server['version'] == 2 ?
                 "&obfs={$server['obfs']}&obfs-password={$obfs_password}" :
-                "&obfs={$server['obfs']}&obfsParam{$obfs_password}";
+                "&obfs={$server['obfs']}&obfsParam={$obfs_password}";
         }
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
-            $uri .= "&mport={$server['mport']}";
+            $mport = $server['mport'] ?? $server['port'];
+            $uri .= "&mport=" . rawurlencode((string)$mport);
         }
         return "{$uri}#{$name}\r\n";
     }
@@ -406,14 +415,16 @@ class Helper
         $tlsSettings = $server['tls_settings'] ?? [];
         $insecure = $tlsSettings['allow_insecure'] ?? 0;
         $sni = $tlsSettings['server_name'] ?? '';
-        $uri = "hysteria2://{$password}@{$remote}:{$firstPort}/?insecure={$insecure}&sni={$sni}";
+        $encodedPassword = rawurlencode($password);
+        $uri = "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$insecure}&sni={$sni}";
 
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
             $obfs_password = rawurlencode($server['obfs_password']);
             $uri .= "&obfs={$server['obfs']}&obfs-password={$obfs_password}";
         }
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
-            $uri .= "&mport={$server['mport']}";
+            $mport = $server['mport'] ?? $server['port'];
+            $uri .= "&mport=" . rawurlencode((string)$mport);
         }
         return "{$uri}#{$name}\r\n";
     }

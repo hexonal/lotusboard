@@ -42,17 +42,39 @@ class ManageController extends Controller
                 'v2node'      => $_POST['v2node'] ?? null,
             ];
         }
+        // 显式映射协议名 → FQCN，避免类名注入和大小写问题
+        $modelMap = [
+            'shadowsocks' => \App\Models\ServerShadowsocks::class,
+            'vmess'       => \App\Models\ServerVmess::class,
+            'vless'       => \App\Models\ServerVless::class,
+            'trojan'      => \App\Models\ServerTrojan::class,
+            'tuic'        => \App\Models\ServerTuic::class,
+            'hysteria'    => \App\Models\ServerHysteria::class,
+            'anytls'      => \App\Models\ServerAnytls::class,
+            'v2node'      => \App\Models\ServerV2node::class,
+        ];
         DB::beginTransaction();
-        foreach ($params as $k => $v) {
-            $model = 'App\\Models\\Server' . ucfirst($k);
-            foreach($v as $id => $sort) {
-                if (!$model::find($id)->update(['sort' => $sort])) {
-                    DB::rollBack();
-                    abort(500, '保存失败');
+        try {
+            foreach ($params as $k => $v) {
+                if (empty($v) || !isset($modelMap[$k])) continue;
+                $model = $modelMap[$k];
+                foreach ($v as $id => $sort) {
+                    $row = $model::find($id);
+                    if (!$row) {
+                        DB::rollBack();
+                        abort(404, "节点不存在: {$k}#{$id}");
+                    }
+                    if (!$row->update(['sort' => $sort])) {
+                        DB::rollBack();
+                        abort(500, '保存失败');
+                    }
                 }
             }
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
         }
-        DB::commit();
         return response([
             'data' => true
         ]);

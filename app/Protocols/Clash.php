@@ -114,7 +114,7 @@ class Clash
                 $plugin_opts['host'] = $server['obfs-host'];
             }
             $array['plugin-opts'] = $plugin_opts;
-        } elseif ($server['network'] ?? null == 'http') {
+        } elseif (($server['network'] ?? null) === 'http') {
             $array['plugin'] = 'obfs';
             $plugin_opts = [
                 'mode' => 'http'

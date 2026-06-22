@@ -318,15 +318,18 @@ class ClashMeta
             }
         }
 
-        if (isset($server['encryption']) && !empty($server['encryption']) && isset($server['encryption_settings']) && !empty($server['encryption_settings'])) {
+        if (!empty($server['encryption']) && !empty($server['encryption_settings'])) {
             $encryptionSettings = $server['encryption_settings'];
-            $array['encryption'] = $server['encryption'] ?? 'mlkem768x25519plus';
-            $array['encryption'] .= '.' . $encryptionSettings['mode'] ?? 'native';
-            $array['encryption'] .= '.' . $encryptionSettings['rtt'] ?? '1rtt';
-            if (isset($encryptionSettings['client_padding']) && !empty($encryptionSettings['client_padding'])) {
-                $array['encryption'] .= '.' . $encryptionSettings['client_padding'];
+            // 缺 password 整段配置无意义,跳过避免拼出半截字符串
+            if (!empty($encryptionSettings['password'])) {
+                $array['encryption'] = $server['encryption'] ?: 'mlkem768x25519plus';
+                $array['encryption'] .= '.' . ($encryptionSettings['mode'] ?? 'native');
+                $array['encryption'] .= '.' . ($encryptionSettings['rtt'] ?? '1rtt');
+                if (!empty($encryptionSettings['client_padding'])) {
+                    $array['encryption'] .= '.' . $encryptionSettings['client_padding'];
+                }
+                $array['encryption'] .= '.' . $encryptionSettings['password'];
             }
-            $array['encryption'] .= '.' . $encryptionSettings['password'] ?? '';
         }
 
         return $array;

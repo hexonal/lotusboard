@@ -124,11 +124,10 @@ class VlessController extends Controller
 
     public function drop(Request $request)
     {
-        if ($request->input('id')) {
-            $server = ServerVless::find($request->input('id'));
-            if (!$server) {
-                abort(500, '节点ID不存在');
-            }
+        $request->validate(['id' => 'required|integer']);
+        $server = ServerVless::find($request->input('id'));
+        if (!$server) {
+            abort(404, '节点ID不存在');
         }
         return response([
             'data' => $server->delete()
@@ -159,12 +158,15 @@ class VlessController extends Controller
 
     public function copy(Request $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $server = ServerVless::find($request->input('id'));
-        $server->show = 0;
         if (!$server) {
-            abort(500, '服务器不存在');
+            abort(404, '服务器不存在');
         }
-        if (!ServerVless::create($server->toArray())) {
+        $data = $server->toArray();
+        unset($data['id'], $data['created_at'], $data['updated_at']);
+        $data['show'] = 0;
+        if (!ServerVless::create($data)) {
             abort(500, '复制失败');
         }
 

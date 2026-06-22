@@ -20,12 +20,10 @@ class UniProxyController extends Controller
 
     public function __construct(Request $request)
     {
-        $token = $request->input('token');
-        if (empty($token)) {
-            abort(500, 'token is null');
-        }
-        if ($token !== config('v2board.server_token')) {
-            abort(500, 'token is error');
+        $token = (string)$request->input('token', '');
+        $expected = (string)config('v2board.server_token', '');
+        if ($token === '' || $expected === '' || !hash_equals($expected, $token)) {
+            abort(403, 'token invalid');
         }
         $this->nodeType = $request->input('node_type');
         if ($this->nodeType === 'v2ray') $this->nodeType = 'vmess';
@@ -33,7 +31,7 @@ class UniProxyController extends Controller
         $this->nodeId = $request->input('node_id');
         $this->serverService = new ServerService();
         $this->nodeInfo = $this->serverService->getServer($this->nodeId, $this->nodeType);
-        if (!$this->nodeInfo) abort(500, 'server is not exist');
+        if (!$this->nodeInfo) abort(404, 'server is not exist');
     }
 
     // 后端获取用户
@@ -53,14 +51,14 @@ class UniProxyController extends Controller
             $packer = new Packer();
             $response = $packer->pack($response);
             $eTag = sha1($response);
-            if (strpos($request->header('If-None-Match'), $eTag) !== false) {
+            if ($this->ifNoneMatchHit($request, $eTag)) {
                 abort(304);
             }
 
             return response($response, 200, ['Content-Type' => 'application/x-msgpack'])->header('ETag', "\"{$eTag}\"");
         } else {
             $eTag = sha1(json_encode($response));
-            if (strpos($request->header('If-None-Match'), $eTag) !== false) {
+            if ($this->ifNoneMatchHit($request, $eTag)) {
                 abort(304);
             }
 
@@ -75,11 +73,9 @@ class UniProxyController extends Controller
         if (empty($data)) {
             $data = $_POST;
         }
-        if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
-            // JSON decoding error
-            return response([
-                'error' => 'Invalid traffic data'
-            ], 400);
+        // 空 body 不更新 ONLINE_USER，避免节点重启/健康检查把计数清零
+        if (!is_array($data) || empty($data)) {
+            return response(['data' => true]);
         }
         Cache::put(CacheKey::get('SERVER_' . strtoupper($this->nodeType) . '_ONLINE_USER', $this->nodeInfo->id), count($data), 3600);
         Cache::put(CacheKey::get('SERVER_' . strtoupper($this->nodeType) . '_LAST_PUSH_AT', $this->nodeInfo->id), time(), 3600);
@@ -94,7 +90,9 @@ class UniProxyController extends Controller
     // 后端获取在线数据
     public function alivelist(Request $request)
     {
-        $alive = Cache::remember('ALIVE_LIST', 60, function () {
+        $deviceLimitMode = (int)config('v2board.device_limit_mode', 0);
+        // device_limit_mode 进入 cache key 防止模式切换污染；TTL 缩短到 5s 减少踢人/解禁的体验滞后
+        $alive = Cache::remember('ALIVE_LIST_M' . $deviceLimitMode, 5, function () {
             $userService = new UserService();
             $users = $userService->getDeviceLimitedUsers();
 
@@ -130,78 +128,70 @@ class UniProxyController extends Controller
             $data = $_POST;
         }
         if (empty($data)) {
-            return response([
-                'data' => true
-            ]);
+            return response(['data' => true]);
         }
         if (!is_array($data)) {
-            return response([
-                'error' => 'Invalid online data format'
-            ], 400);
+            return response(['error' => 'Invalid online data format'], 400);
         }
         $updateAt = time();
-        $cacheKeys = array_map(function ($uid) {
-            return 'ALIVE_IP_USER_' . $uid;
-        }, array_keys($data));
-
-        if (empty($cacheKeys)) {
-            return response([
-                'data' => true
-            ]);
-        }
-
-        $cachedData = Cache::many($cacheKeys);
-        $updates = [];
+        $deviceLimitMode = (int)config('v2board.device_limit_mode', 0);
 
         foreach ($data as $uid => $ips) {
             if (!is_numeric($uid) || !is_array($ips)) {
-                continue; // 跳过无效数据
+                continue;
             }
             $key = 'ALIVE_IP_USER_' . $uid;
-            $ips_array = $cachedData[$key] ?? [];
-
-            // 更新节点数据
-            $ips_array[$this->nodeType . $this->nodeId] = ['aliveips' => $ips, 'lastupdateAt' => $updateAt];
-            // 清理过期数据
-            foreach ($ips_array as $nodetypeid => $oldips) {
-                if ($nodetypeid !== 'alive_ip' && is_array($oldips) && ($updateAt - ($oldips['lastupdateAt'] ?? 0) > 100)) {
-                    unset($ips_array[$nodetypeid]);
+            // 按 user 维度加锁,消除多节点并发上报的 read-modify-write 竞态
+            $lock = Cache::lock('LOCK_' . $key, 5);
+            try {
+                $lock->block(2);
+                $ips_array = Cache::get($key) ?? [];
+                if (!is_array($ips_array)) {
+                    $ips_array = [];
                 }
-            }
 
-            // 计算活跃IP数量
-            $count = 0;
-            if (config('v2board.device_limit_mode', 0) == 1) {
-                $ipmap = [];
-                foreach ($ips_array as $nodetypeid => $newdata) {
-                    if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
-                        foreach ($newdata['aliveips'] as $ip_NodeId) {
-                            $ip = explode("_", $ip_NodeId)[0];
-                            $ipmap[$ip] = 1;
+                $ips_array[$this->nodeType . $this->nodeId] = [
+                    'aliveips' => $ips,
+                    'lastupdateAt' => $updateAt,
+                ];
+                // 清理 100s 过期的节点分片
+                foreach ($ips_array as $nodetypeid => $oldips) {
+                    if ($nodetypeid !== 'alive_ip' && is_array($oldips) && ($updateAt - ($oldips['lastupdateAt'] ?? 0) > 100)) {
+                        unset($ips_array[$nodetypeid]);
+                    }
+                }
+
+                $count = 0;
+                if ($deviceLimitMode === 1) {
+                    $ipmap = [];
+                    foreach ($ips_array as $nodetypeid => $newdata) {
+                        if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
+                            foreach ($newdata['aliveips'] as $ip_NodeId) {
+                                $ip = explode("_", $ip_NodeId)[0];
+                                $ipmap[$ip] = 1;
+                            }
+                        }
+                    }
+                    $count = count($ipmap);
+                } else {
+                    foreach ($ips_array as $nodetypeid => $newdata) {
+                        if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
+                            $count += count($newdata['aliveips']);
                         }
                     }
                 }
-                $count = count($ipmap);
-            } else {
-                foreach ($ips_array as $nodetypeid => $newdata) {
-                    if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
-                        $count += count($newdata['aliveips']);
-                    }
-                }
+                $ips_array['alive_ip'] = $count;
+
+                Cache::put($key, $ips_array, 120);
+            } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+                // 拿不到锁就跳过本次写入,下一次 push 还会再上报
+                continue;
+            } finally {
+                optional($lock)->release();
             }
-            $ips_array['alive_ip'] = $count;
-
-            $updates[$key] = $ips_array;
         }
 
-        // 批量更新缓存
-        foreach ($updates as $key => $value) {
-            Cache::put($key, $value, 120);
-        }
-
-        return response([
-            'data' => true
-        ]);
+        return response(['data' => true]);
     }
 
     // 后端获取配置
@@ -227,15 +217,17 @@ class UniProxyController extends Controller
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->networkSettings,
-                    'tls' => $this->nodeInfo->tls
+                    // 对外统一 snake_case;同时补 tls_settings 以支持 v2node + TLS/Reality 配置
+                    'network_settings' => $this->nodeInfo->networkSettings,
+                    'tls' => $this->nodeInfo->tls,
+                    'tls_settings' => $this->nodeInfo->tlsSettings,
                 ];
                 break;
             case 'vless':
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->network_settings,
+                    'network_settings' => $this->nodeInfo->network_settings,
                     'tls' => $this->nodeInfo->tls,
                     'flow' => $this->nodeInfo->flow,
                     'tls_settings' => $this->nodeInfo->tls_settings,
@@ -247,7 +239,7 @@ class UniProxyController extends Controller
                 $response = [
                     'host' => $this->nodeInfo->host,
                     'network' => $this->nodeInfo->network,
-                    'networkSettings' => $this->nodeInfo->network_settings,
+                    'network_settings' => $this->nodeInfo->network_settings,
                     'server_port' => $this->nodeInfo->server_port,
                     'server_name' => $this->nodeInfo->server_name,
                 ];
@@ -297,10 +289,28 @@ class UniProxyController extends Controller
             $response['routes'] = $this->serverService->getRoutes($this->nodeInfo['route_id']);
         }
         $eTag = sha1(json_encode($response));
-        if (strpos($request->header('If-None-Match'), $eTag) !== false) {
+        if ($this->ifNoneMatchHit($request, $eTag)) {
             abort(304);
         }
 
         return response($response)->header('ETag', "\"{$eTag}\"");
+    }
+
+    /**
+     * ETag 比较：按逗号 split + 去引号 + hash_equals，避免子串误匹配
+     */
+    private function ifNoneMatchHit(Request $request, string $eTag): bool
+    {
+        $header = (string)$request->header('If-None-Match', '');
+        if ($header === '') {
+            return false;
+        }
+        foreach (explode(',', $header) as $token) {
+            $token = trim($token, " \t\"");
+            if ($token !== '' && hash_equals($eTag, $token)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

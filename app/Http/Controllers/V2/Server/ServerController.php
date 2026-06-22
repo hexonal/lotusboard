@@ -15,37 +15,18 @@ class ServerController extends Controller
 
     public function __construct(Request $request)
     {
-        $token = $request->input('token');
-
-        // token 为空（业务失败，不抛异常）
-        if (empty($token)) {
-            response()->json([
-                'status' => 'fail',
-                'message' => 'token is null'
-            ], 200)->send();
-            exit;
-        }
-
-        // token 错误
-        if ($token !== config('v2board.server_token')) {
-            response()->json([
-                'status' => 'fail',
-                'message' => 'token is error'
-            ], 200)->send();
-            exit;
+        $token = (string)$request->input('token', '');
+        $expected = (string)config('v2board.server_token', '');
+        if ($token === '' || $expected === '' || !hash_equals($expected, $token)) {
+            abort(403, 'token invalid');
         }
 
         $this->nodeId = $request->input('node_id');
         $this->serverService = new ServerService();
         $this->nodeInfo = $this->serverService->getServer($this->nodeId, "v2node");
 
-        // 节点不存在
         if (!$this->nodeInfo) {
-            response()->json([
-                'status' => 'fail',
-                'message' => 'server is not exist'
-            ], 200)->send();
-            exit;
+            abort(404, 'server is not exist');
         }
     }
 
@@ -101,9 +82,15 @@ class ServerController extends Controller
         $rsp = json_encode($response);
         $eTag = sha1($rsp);
 
-        // 不使用 abort(304)，避免异常路径
-        if ($request->header('If-None-Match') === $eTag) {
-            return response('', 304)->header('ETag', "\"{$eTag}\"");
+        // ETag 按逗号 split + 去引号 + hash_equals
+        $header = (string)$request->header('If-None-Match', '');
+        if ($header !== '') {
+            foreach (explode(',', $header) as $token) {
+                $token = trim($token, " \t\"");
+                if ($token !== '' && hash_equals($eTag, $token)) {
+                    return response('', 304)->header('ETag', "\"{$eTag}\"");
+                }
+            }
         }
 
         return response($response)->header('ETag', "\"{$eTag}\"");
