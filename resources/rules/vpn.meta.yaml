@@ -1,0 +1,81 @@
+mixed-port: 7890
+allow-lan: false
+mode: rule
+log-level: info
+global-client-fingerprint: firefox
+ipv6: false
+proxy-groups:
+    - { name: Switcher, type: select, proxies: ['Auto'] }
+    - { name: Auto, type: fallback, proxies: [], url: "https://www.gstatic.com/generate_204", interval: 7200 }
+sniffer:
+  enable: true
+  override-destination: true
+  sniffing:
+    - tls
+    - http
+dns:
+    enable: true
+    listen: 0.0.0.0:8853
+#    enhanced-mode: redir-host
+    enhanced-mode: fake-ip
+    fake-ip-range: 198.18.0.1/16
+    use-hosts: true
+    nameserver: ['tls://1.1.1.1#Switcher', '1.1.1.1#Switcher', '1.0.0.1#Switcher']
+    proxy-server-nameserver: ['tls://119.29.29.29', '223.5.5.5', '114.114.114.114', '8.8.8.8', '119.29.29.29']
+    nameserver-policy:
+        '+.cn': 223.5.5.5
+        '+.openai.com': 'tls://1.1.1.1'
+        '+.chatgpt.com': 'tls://1.1.1.1'
+        '+.oaistatic.com': 'tls://1.1.1.1'
+        '+.oaiusercontent.com': 'tls://1.1.1.1'
+        '+.ai.com': 'tls://1.1.1.1'
+        '+.sora.com': 'tls://1.1.1.1'
+        '+.openaimerge.com': 'tls://1.1.1.1'
+        '+.prodregistryv2.org': 'tls://1.1.1.1'
+        '+.sendgrid.net': 'tls://1.1.1.1'
+        '+.featuregates.org': 'tls://1.1.1.1'
+        '+.statsig.com': 'tls://1.1.1.1'
+        '+.statsigapi.net': 'tls://1.1.1.1'
+        '+.workos.com': 'tls://1.1.1.1'
+        '+.workoscdn.com': 'tls://1.1.1.1'
+        '+.anthropic.com': 'tls://1.1.1.1'
+        '+.claude.ai': 'tls://1.1.1.1'
+        '+.claude.com': 'tls://1.1.1.1'
+        '+.anthropiccdn.com': 'tls://1.1.1.1'
+        '+.claudecdn.com': 'tls://1.1.1.1'
+        '+.claudeusercontent.com': 'tls://1.1.1.1'
+        '+.gemini.google.com': 'tls://1.1.1.1'
+        '+.aistudio.google.com': 'tls://1.1.1.1'
+        '+.makersuite.google.com': 'tls://1.1.1.1'
+        '+.generativelanguage.googleapis.com': 'tls://1.1.1.1'
+        '+.aiplatform.googleapis.com': 'tls://1.1.1.1'
+        '+.vertexai.google.com': 'tls://1.1.1.1'
+        '+.notebooklm.google.com': 'tls://1.1.1.1'
+        '+.notebooklm.google': 'tls://1.1.1.1'
+        '+.labs.google': 'tls://1.1.1.1'
+        '+.g.ai': 'tls://1.1.1.1'
+        '+.x.ai': 'tls://1.1.1.1'
+        '+.grok.com': 'tls://1.1.1.1'
+        '+.x.com': 'tls://1.1.1.1'
+        '+.twitter.com': 'tls://1.1.1.1'
+        '+.twimg.com': 'tls://1.1.1.1'
+        '+.stripe.com': 'tls://1.1.1.1'
+        '+.stripecdn.com': 'tls://1.1.1.1'
+        '+.stripe.network': 'tls://1.1.1.1'
+    ipv6: false
+rules:
+    - 'DOMAIN,invite.linuxdo.org,DIRECT'
+    - 'DOMAIN-SUFFIX,coredevice.local,DIRECT'
+    - 'DOMAIN,iphone.coredevice.local,DIRECT'
+    - 'DOMAIN-SUFFIX,local,DIRECT'
+    - 'IP-CIDR,127.0.0.0/8,DIRECT'
+    - 'IP-CIDR,169.254.0.0/16,DIRECT,no-resolve'
+    - 'IP-CIDR,172.16.0.0/12,DIRECT'
+    - 'IP-CIDR,192.168.0.0/16,DIRECT'
+    - 'IP-CIDR,10.0.0.0/8,DIRECT'
+    - 'IP-CIDR,17.0.0.0/8,DIRECT'
+    - 'IP-CIDR,100.64.0.0/10,DIRECT'
+    - 'IP-CIDR,224.0.0.0/4,DIRECT'
+    - 'IP-CIDR6,fe80::/10,DIRECT'
+    - 'MATCH,Switcher'
+proxies:
