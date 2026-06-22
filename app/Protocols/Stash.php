@@ -164,33 +164,32 @@ class Stash
                 }
             }
         }
+        // 兼容 v2node (snake_case) 与 ServerVmess (camelCase)
+        $networkSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
         if ($server['network'] === 'tcp') {
-            $tcpSettings = $server['networkSettings'];
-            if (isset($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http') {
-                $array['network'] = $tcpSettings['header']['type'];
-                if (isset($tcpSettings['header']['request']['headers']['Host'])) $array['http-opts']['headers']['Host'] = $tcpSettings['header']['request']['headers']['Host'];
+            if (isset($networkSettings['header']['type']) && $networkSettings['header']['type'] == 'http') {
+                $array['network'] = $networkSettings['header']['type'];
+                if (isset($networkSettings['header']['request']['headers']['Host'])) $array['http-opts']['headers']['Host'] = $networkSettings['header']['request']['headers']['Host'];
             }
         }
         if ($server['network'] === 'ws') {
             $array['network'] = 'ws';
-            if ($server['networkSettings']) {
-                $wsSettings = $server['networkSettings'];
+            if (!empty($networkSettings)) {
                 $array['ws-opts'] = [];
-                if (!empty($wsSettings['path']))
-                    $array['ws-opts']['path'] = $wsSettings['path'];
-                if (!empty($wsSettings['headers']['Host']))
-                    $array['ws-opts']['headers'] = ['Host' => $wsSettings['headers']['Host']];
-                if (isset($wsSettings['security'])) {
-                    $array['cipher'] = $wsSettings['security'];
+                if (!empty($networkSettings['path']))
+                    $array['ws-opts']['path'] = $networkSettings['path'];
+                if (!empty($networkSettings['headers']['Host']))
+                    $array['ws-opts']['headers'] = ['Host' => $networkSettings['headers']['Host']];
+                if (isset($networkSettings['security'])) {
+                    $array['cipher'] = $networkSettings['security'];
                 }
             }
         }
         if ($server['network'] === 'grpc') {
             $array['network'] = 'grpc';
-            if ($server['networkSettings']) {
-                $grpcSettings = $server['networkSettings'];
+            if (!empty($networkSettings)) {
                 $array['grpc-opts'] = [];
-                if (isset($grpcSettings['serviceName']))  $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+                if (isset($networkSettings['serviceName']))  $array['grpc-opts']['grpc-service-name'] = $networkSettings['serviceName'];
             }
         }
 
@@ -230,7 +229,7 @@ class Stash
         }
 
         if ($server['network'] === 'tcp') {
-            $tcpSettings = $server['network_settings'];
+            $tcpSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
             if (isset($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http') {
                 $array['network'] = $tcpSettings['header']['type'];
                 if (isset($tcpSettings['header']['request']['headers']['Host'])) $array['http-opts']['headers']['Host'] = $tcpSettings['header']['request']['headers']['Host'];
@@ -238,29 +237,28 @@ class Stash
             }
         }
 
+        $vlessNetworkSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
         if ($server['network'] === 'ws') {
             $array['network'] = 'ws';
-            if ($server['network_settings']) {
-                $wsSettings = $server['network_settings'];
+            if (!empty($vlessNetworkSettings)) {
                 $array['ws-opts'] = [];
-                if (!empty($wsSettings['path']))
-                    $array['ws-opts']['path'] = $wsSettings['path'];
-                if (!empty($wsSettings['headers']['Host']))
-                    $array['ws-opts']['headers'] = ['Host' => $wsSettings['headers']['Host']];
+                if (!empty($vlessNetworkSettings['path']))
+                    $array['ws-opts']['path'] = $vlessNetworkSettings['path'];
+                if (!empty($vlessNetworkSettings['headers']['Host']))
+                    $array['ws-opts']['headers'] = ['Host' => $vlessNetworkSettings['headers']['Host']];
             }
         }
         if ($server['network'] === 'grpc') {
             $array['network'] = 'grpc';
-            if ($server['network_settings']) {
-                $grpcSettings = $server['network_settings'];
+            if (!empty($vlessNetworkSettings)) {
                 $array['grpc-opts'] = [];
-                if (isset($grpcSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $grpcSettings['serviceName'];
+                if (isset($vlessNetworkSettings['serviceName'])) $array['grpc-opts']['grpc-service-name'] = $vlessNetworkSettings['serviceName'];
             }
         }
 
         return $array;
     }
-    
+
     public static function buildTrojan($password, $server)
     {
         $array = [];

@@ -84,7 +84,7 @@ class Loon
 
     public static function buildVmess($uuid, $server)
     {
-        $networkSettings = $server['networkSettings'] ?? [];
+        $networkSettings = ($server['networkSettings'] ?? $server['network_settings'] ?? null) ?? [];
         $config = [
             "{$server['name']}=vmess",
             "{$server['host']}",
@@ -98,8 +98,8 @@ class Loon
 
         if ($server['network'] === 'tcp') {
             array_push($config, 'transport=tcp');
-            if ($server['networkSettings']) {
-                $tcpSettings = $server['networkSettings'];
+            if (($server['networkSettings'] ?? $server['network_settings'] ?? null)) {
+                $tcpSettings = ($server['networkSettings'] ?? $server['network_settings'] ?? null);
                 if (isset($tcpSettings['header']['type']) && !empty($tcpSettings['header']['type']) && $tcpSettings['header']['type'] == 'http')
                     $config = str_replace('transport=tcp', "transport={$tcpSettings['header']['type']}", $config);
                 if (isset($tcpSettings['header']['request']['path'][0]) && !empty($tcpSettings['header']['request']['path'][0]))
@@ -110,18 +110,18 @@ class Loon
         }
         if ($server['tls']) {
             array_push($config, 'over-tls=true');
-            if ($server['tlsSettings']) {
-                $tlsSettings = $server['tlsSettings'];
+            if (($server['tlsSettings'] ?? $server['tls_settings'] ?? null)) {
+                $tlsSettings = ($server['tlsSettings'] ?? $server['tls_settings'] ?? null);
                 $allowInsecure = (int)($tlsSettings['allowInsecure'] ?? $tlsSettings['allow_insecure'] ?? 0);
                 array_push($config, 'skip-cert-verify=' . ($allowInsecure ? 'true' : 'false'));
-                if (!empty($tlsSettings['serverName']))
-                    array_push($config, "tls-name={$tlsSettings['serverName']}");
+                $sni = $tlsSettings['serverName'] ?? $tlsSettings['server_name'] ?? '';
+                if ($sni !== '') array_push($config, "tls-name={$sni}");
             }
         }
         if ($server['network'] === 'ws') {
             array_push($config, 'transport=ws');
-            if ($server['networkSettings']) {
-                $wsSettings = $server['networkSettings'];
+            if (($server['networkSettings'] ?? $server['network_settings'] ?? null)) {
+                $wsSettings = ($server['networkSettings'] ?? $server['network_settings'] ?? null);
                 if (isset($wsSettings['path']) && !empty($wsSettings['path']))
                     array_push($config, "path={$wsSettings['path']}");
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))

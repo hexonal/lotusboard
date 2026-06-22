@@ -175,10 +175,10 @@ class ClashNyanpasu
             $array['tls'] = true;
             $tlsSettings = $server['tlsSettings'] ?? ($server['tls_settings'] ?? null);
             if ($tlsSettings) {
-                if (isset($tlsSettings['allowInsecure']) && !empty($tlsSettings['allowInsecure']))
-                    $array['skip-cert-verify'] = ($tlsSettings['allowInsecure'] ? true : false);
-                if (isset($tlsSettings['serverName']) && !empty($tlsSettings['serverName']))
-                    $array['servername'] = $tlsSettings['serverName'];
+                $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0);
+                $array['skip-cert-verify'] = (bool)$allowInsecure;
+                $sni = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
+                if ($sni !== '') $array['servername'] = $sni;
                 if (!empty($tlsSettings['ech'])) {
                     if ($tlsSettings['ech'] === 'cloudflare') {
                         $array['ech-opts'] = [

@@ -137,19 +137,19 @@ class Surge
 
         if ($server['tls']) {
             array_push($config, 'tls=true');
-            if ($server['tlsSettings']) {
-                $tlsSettings = $server['tlsSettings'];
+            if (($server['tlsSettings'] ?? $server['tls_settings'] ?? null)) {
+                $tlsSettings = ($server['tlsSettings'] ?? $server['tls_settings'] ?? null);
                 // 无条件输出 skip-cert-verify, 避免 Surge 默认严格校验导致 SNI 伪装节点连不上
                 $allowInsecure = (int)($tlsSettings['allowInsecure'] ?? $tlsSettings['allow_insecure'] ?? 0);
                 array_push($config, 'skip-cert-verify=' . ($allowInsecure ? 'true' : 'false'));
-                if (!empty($tlsSettings['serverName']))
-                    array_push($config, "sni={$tlsSettings['serverName']}");
+                $sni = $tlsSettings['serverName'] ?? $tlsSettings['server_name'] ?? '';
+                if ($sni !== '') array_push($config, "sni={$sni}");
             }
         }
         if ($server['network'] === 'ws') {
             array_push($config, 'ws=true');
-            if ($server['networkSettings']) {
-                $wsSettings = $server['networkSettings'];
+            if (($server['networkSettings'] ?? $server['network_settings'] ?? null)) {
+                $wsSettings = ($server['networkSettings'] ?? $server['network_settings'] ?? null);
                 if (isset($wsSettings['path']) && !empty($wsSettings['path']))
                     array_push($config, "ws-path={$wsSettings['path']}");
                 if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
