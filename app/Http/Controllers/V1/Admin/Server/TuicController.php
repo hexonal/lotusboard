@@ -67,6 +67,7 @@ class TuicController extends Controller
 
     public function update(Request $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $request->validate([
             'show' => 'in:0,1'
         ], [

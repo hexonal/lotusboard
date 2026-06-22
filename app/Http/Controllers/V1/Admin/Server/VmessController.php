@@ -52,6 +52,7 @@ class VmessController extends Controller
 
     public function update(ServerVmessUpdate $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $params = $request->only([
             'show',
         ]);

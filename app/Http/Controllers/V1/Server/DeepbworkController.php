@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\Server;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\V1\Server\Concerns\EtagHelpers;
 use App\Models\ServerVmess;
 use App\Services\ServerService;
 use App\Services\UserService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
  */
 class DeepbworkController extends Controller
 {
+    use EtagHelpers;
     CONST V2RAY_CONFIG = '{"log":{"loglevel":"debug","access":"access.log","error":"error.log"},"api":{"services":["HandlerService","StatsService"],"tag":"api"},"dns":{},"stats":{},"inbounds":[{"port":443,"protocol":"vmess","settings":{"clients":[]},"sniffing":{"enabled":true,"destOverride":["http","tls"]},"streamSettings":{"network":"tcp"},"tag":"proxy"},{"listen":"127.0.0.1","port":23333,"protocol":"dokodemo-door","settings":{"address":"0.0.0.0"},"tag":"api"}],"outbounds":[{"protocol":"freedom","settings":{}},{"protocol":"blackhole","settings":{},"tag":"block"}],"routing":{"rules":[{"type":"field","inboundTag":"api","outboundTag":"api"}]},"policy":{"levels":{"0":{"handshake":4,"connIdle":300,"uplinkOnly":5,"downlinkOnly":30,"statsUserUplink":true,"statsUserDownlink":true}}}}';
     public function __construct(Request $request)
     {
@@ -52,7 +54,7 @@ class DeepbworkController extends Controller
             array_push($result, $user);
         }
         $eTag = sha1(json_encode($result));
-        if (strpos($request->header('If-None-Match'), $eTag) !== false ) {
+        if ($this->ifNoneMatchHit($request, $eTag)) {
             abort(304);
         }
         return response([
@@ -74,12 +76,17 @@ class DeepbworkController extends Controller
         }
         $data = request()->getContent() ?: json_encode($_POST);
         $data = json_decode($data, true);
+        // 空 body 不更新计数, 避免节点重启/健康检查清零
+        if (!is_array($data) || empty($data)) {
+            return response(['ret' => 1, 'msg' => 'ok']);
+        }
         Cache::put(CacheKey::get('SERVER_VMESS_ONLINE_USER', $server->id), count($data), 3600);
         Cache::put(CacheKey::get('SERVER_VMESS_LAST_PUSH_AT', $server->id), time(), 3600);
         $userService = new UserService();
         $formatData = [];
 
         foreach ($data as $item) {
+            if (!is_array($item) || !isset($item['user_id'], $item['u'], $item['d'])) continue;
             $formatData[$item['user_id']] = [$item['u'], $item['d']];
         }
         $userService->trafficFetch($server->toArray(), 'vmess', $formatData);

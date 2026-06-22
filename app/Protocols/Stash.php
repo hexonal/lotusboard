@@ -356,13 +356,16 @@ class Stash
     public static function buildHysteria2($password, $server)
     {
         $tlsSettings = $server['tls_settings'] ?? [];
+        // 与 Loon/Singbox 一致: 同时读扁平列和 tls_settings
+        $allowInsecure = $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0);
+        $sni = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
         $array = [
             'name' => $server['name'],
             'type' => 'hysteria2',
             'server' => $server['host'],
             'password' => $password,
-            'skip-cert-verify' => ($tlsSettings['allow_insecure'] ?? 0) == 1 ? true : false,
-            'sni' => $tlsSettings['server_name'] ?? '',
+            'skip-cert-verify' => (int)$allowInsecure == 1,
+            'sni' => $sni,
             'udp' => true,
         ];
         $parts = explode(",", $server['port']);

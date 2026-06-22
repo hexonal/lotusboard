@@ -136,6 +136,7 @@ class VlessController extends Controller
 
     public function update(Request $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $params = $request->validate([
             'show' => 'nullable|in:0,1',
         ]);

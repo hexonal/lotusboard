@@ -51,6 +51,7 @@ class ShadowsocksController extends Controller
 
     public function update(ServerShadowsocksUpdate $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $params = $request->only([
             'show',
         ]);

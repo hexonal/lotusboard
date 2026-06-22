@@ -296,7 +296,8 @@ class Helper
     public static function buildVlessUri($uuid, $server)
     {
         $name = self::encodeURIComponent($server['name']);
-        $tlsSettings = $server['tls_settings'] ?? [];
+        // 与 buildVmessUri 一致: tls_settings 优先, tlsSettings 兜底
+        $tlsSettings = $server['tls_settings'] ?? ($server['tlsSettings'] ?? []);
 
         $config = [
             "type" => $server['network'],
@@ -311,19 +312,18 @@ class Helper
             "fp" => $tlsSettings['fingerprint'] ?? 'chrome',
         ];
 
-        // Reality 不允许 insecure；其他 tls 模式同时输出 insecure/allowInsecure 以兼容各客户端
+        // Reality 不允许 insecure；其他 tls 模式同时输出 insecure/allowInsecure 兼容各客户端
         if ($server['tls'] != 2) {
-            $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? 0);
+            $allowInsecure = (int)($tlsSettings['allow_insecure'] ?? $tlsSettings['allowInsecure'] ?? 0);
             $config['insecure'] = $allowInsecure;
             $config['allowInsecure'] = $allowInsecure;
         }
 
         if ($server['tls']) {
-            $tlsSettings = $server['tls_settings'] ?? [];
-            $config['sni'] = $tlsSettings['server_name'] ?? '';
+            $config['sni'] = $tlsSettings['server_name'] ?? $tlsSettings['serverName'] ?? '';
             if ($server['tls'] == 2) {
-                $config['pbk'] = $tlsSettings['public_key'] ?? '';
-                $config['sid'] = $tlsSettings['short_id'] ?? '';
+                $config['pbk'] = $tlsSettings['public_key'] ?? $tlsSettings['publicKey'] ?? '';
+                $config['sid'] = $tlsSettings['short_id'] ?? $tlsSettings['shortId'] ?? '';
             }
         }
         if (!empty($tlsSettings['ech'])) {
@@ -392,26 +392,41 @@ class Helper
         $parts = explode(",", $server['port']);
         $firstPort = strpos($parts[0], '-') !== false ? explode('-', $parts[0])[0] : $parts[0];
 
-        // 与 hy2/tuic/anytls 命名一致: 优先扁平列, 兜底到 tls_settings
         $tlsSettings = $server['tls_settings'] ?? [];
         $insecure = $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0);
         $sni = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
 
         $encodedPassword = rawurlencode($password);
-        $uri = $server['version'] == 2 ?
-            "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$insecure}&sni={$sni}" :
-            "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$encodedPassword}&insecure={$insecure}&peer={$sni}&upmbps={$server['up_mbps']}&downmbps={$server['down_mbps']}";
+        $isV2 = $server['version'] == 2;
 
+        // 用 http_build_query 统一编码 SNI/obfs 等字段, 避免特殊字符破坏 URI
+        $params = [
+            'insecure' => $insecure,
+            'sni' => $sni,
+        ];
+        if (!$isV2) {
+            $params = [
+                'protocol' => 'udp',
+                'auth' => $password,  // http_build_query 会自动 rawurlencode
+                'insecure' => $insecure,
+                'peer' => $sni,
+                'upmbps' => $server['up_mbps'],
+                'downmbps' => $server['down_mbps'],
+            ];
+        }
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
-            $obfs_password = rawurlencode($server['obfs_password']);
-            $uri .= $server['version'] == 2 ?
-                "&obfs={$server['obfs']}&obfs-password={$obfs_password}" :
-                "&obfs={$server['obfs']}&obfsParam={$obfs_password}";
+            $params['obfs'] = $server['obfs'];
+            $params[$isV2 ? 'obfs-password' : 'obfsParam'] = $server['obfs_password'];
         }
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
-            $mport = $server['mport'] ?? $server['port'];
-            $uri .= "&mport=" . rawurlencode((string)$mport);
+            $params['mport'] = (string)($server['mport'] ?? $server['port']);
         }
+        $query = http_build_query($params);
+
+        $uri = $isV2
+            ? "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?{$query}"
+            : "hysteria://{$remote}:{$firstPort}/?{$query}";
+
         return "{$uri}#{$name}\r\n";
     }
 
@@ -423,20 +438,23 @@ class Helper
         $parts = explode(",", $server['port']);
         $firstPort = strpos($parts[0], '-') !== false ? explode('-', $parts[0])[0] : $parts[0];
         $tlsSettings = $server['tls_settings'] ?? [];
-        $insecure = $tlsSettings['allow_insecure'] ?? 0;
-        $sni = $tlsSettings['server_name'] ?? '';
+        $insecure = $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0);
+        $sni = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
         $encodedPassword = rawurlencode($password);
-        $uri = "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$insecure}&sni={$sni}";
 
+        $params = [
+            'insecure' => $insecure,
+            'sni' => $sni,
+        ];
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
-            $obfs_password = rawurlencode($server['obfs_password']);
-            $uri .= "&obfs={$server['obfs']}&obfs-password={$obfs_password}";
+            $params['obfs'] = $server['obfs'];
+            $params['obfs-password'] = $server['obfs_password'];
         }
         if (count($parts) !== 1 || strpos($parts[0], '-') !== false) {
-            $mport = $server['mport'] ?? $server['port'];
-            $uri .= "&mport=" . rawurlencode((string)$mport);
+            $params['mport'] = (string)($server['mport'] ?? $server['port']);
         }
-        return "{$uri}#{$name}\r\n";
+        $query = http_build_query($params);
+        return "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?{$query}#{$name}\r\n";
     }
 
     public static function buildTuicUri($password, $server)

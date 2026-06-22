@@ -38,20 +38,24 @@ class HysteriaController extends Controller
             $params['down_mbps'] = 0;
         }
 
+        $isEdit = (bool)$request->input('id');
+        $existing = $isEdit ? ServerHysteria::find($request->input('id')) : null;
+        if ($isEdit && !$existing) {
+            abort(404, '服务器不存在');
+        }
+
         if (isset($params['obfs'])) {
-            // 不要用客户端可控的 created_at 当熵源,改用安全随机
-            if (!isset($params['obfs_password'])) $params['obfs_password'] = \Illuminate\Support\Str::random(16);
+            if (!isset($params['obfs_password'])) {
+                // 编辑场景沿用已有密码,避免覆盖在用客户端;仅新建/无历史值时生成安全随机
+                $params['obfs_password'] = $existing->obfs_password ?? \Illuminate\Support\Str::random(16);
+            }
         } else {
             $params['obfs_password'] = null;
         }
 
-        if ($request->input('id')) {
-            $server = ServerHysteria::find($request->input('id'));
-            if (!$server) {
-                abort(500, '服务器不存在');
-            }
+        if ($isEdit) {
             try {
-                $server->update($params);
+                $existing->update($params);
             } catch (\Exception $e) {
                 abort(500, '保存失败');
             }
@@ -83,6 +87,7 @@ class HysteriaController extends Controller
 
     public function update(Request $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $request->validate([
             'show' => 'in:0,1'
         ], [

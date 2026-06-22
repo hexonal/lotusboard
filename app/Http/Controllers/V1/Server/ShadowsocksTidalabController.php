@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\Server;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\V1\Server\Concerns\EtagHelpers;
 use App\Models\ServerShadowsocks;
 use App\Services\ServerService;
 use App\Services\UserService;
@@ -16,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
  */
 class ShadowsocksTidalabController extends Controller
 {
+    use EtagHelpers;
     public function __construct(Request $request)
     {
         $token = (string)$request->input('token', '');
@@ -47,7 +49,7 @@ class ShadowsocksTidalabController extends Controller
             ]);
         }
         $eTag = sha1(json_encode($result));
-        if (strpos($request->header('If-None-Match'), $eTag) !== false ) {
+        if ($this->ifNoneMatchHit($request, $eTag)) {
             abort(304);
         }
         return response([
@@ -68,12 +70,16 @@ class ShadowsocksTidalabController extends Controller
         }
         $data = request()->getContent() ?: json_encode($_POST);
         $data = json_decode($data, true);
+        if (!is_array($data) || empty($data)) {
+            return response(['ret' => 1, 'msg' => 'ok']);
+        }
         Cache::put(CacheKey::get('SERVER_SHADOWSOCKS_ONLINE_USER', $server->id), count($data), 3600);
         Cache::put(CacheKey::get('SERVER_SHADOWSOCKS_LAST_PUSH_AT', $server->id), time(), 3600);
         $userService = new UserService();
         $formatData = [];
 
         foreach ($data as $item) {
+            if (!is_array($item) || !isset($item['user_id'], $item['u'], $item['d'])) continue;
             $formatData[$item['user_id']] = [$item['u'], $item['d']];
         }
         $userService->trafficFetch($server->toArray(), 'shadowsocks', $formatData);

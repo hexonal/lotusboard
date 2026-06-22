@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\Server;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\V1\Server\Concerns\EtagHelpers;
 use App\Models\ServerTrojan;
 use App\Services\ServerService;
 use App\Services\UserService;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Log;
  */
 class TrojanTidalabController extends Controller
 {
+    use EtagHelpers;
     CONST TROJAN_CONFIG = '{"run_type":"server","local_addr":"0.0.0.0","local_port":443,"remote_addr":"www.taobao.com","remote_port":80,"password":[],"ssl":{"cert":"server.crt","key":"server.key","sni":"domain.com"},"api":{"enabled":true,"api_addr":"127.0.0.1","api_port":10000}}';
     public function __construct(Request $request)
     {
@@ -49,7 +51,7 @@ class TrojanTidalabController extends Controller
             array_push($result, $user);
         }
         $eTag = sha1(json_encode($result));
-        if (strpos($request->header('If-None-Match'), $eTag) !== false ) {
+        if ($this->ifNoneMatchHit($request, $eTag)) {
             abort(304);
         }
         return response([
@@ -71,11 +73,15 @@ class TrojanTidalabController extends Controller
         }
         $data = request()->getContent() ?: json_encode($_POST);
         $data = json_decode($data, true);
+        if (!is_array($data) || empty($data)) {
+            return response(['ret' => 1, 'msg' => 'ok']);
+        }
         Cache::put(CacheKey::get('SERVER_TROJAN_ONLINE_USER', $server->id), count($data), 3600);
         Cache::put(CacheKey::get('SERVER_TROJAN_LAST_PUSH_AT', $server->id), time(), 3600);
         $userService = new UserService();
         $formatData = [];
         foreach ($data as $item) {
+            if (!is_array($item) || !isset($item['user_id'], $item['u'], $item['d'])) continue;
             $formatData[$item['user_id']] = [$item['u'], $item['d']];
         }
         $userService->trafficFetch($server->toArray(), 'trojan', $formatData);

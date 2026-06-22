@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\Server;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\V1\Server\Concerns\EtagHelpers;
 use App\Services\ServerService;
 use App\Services\UserService;
 use App\Utils\CacheKey;
@@ -13,6 +14,7 @@ use MessagePack\Packer;
 
 class UniProxyController extends Controller
 {
+    use EtagHelpers;
     private $nodeType;
     private $nodeInfo;
     private $nodeId;
@@ -294,21 +296,4 @@ class UniProxyController extends Controller
         return response($response)->header('ETag', "\"{$eTag}\"");
     }
 
-    /**
-     * ETag 比较：按逗号 split + 去引号 + hash_equals，避免子串误匹配
-     */
-    private function ifNoneMatchHit(Request $request, string $eTag): bool
-    {
-        $header = (string)$request->header('If-None-Match', '');
-        if ($header === '') {
-            return false;
-        }
-        foreach (explode(',', $header) as $token) {
-            $token = trim($token, " \t\"");
-            if ($token !== '' && hash_equals($eTag, $token)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

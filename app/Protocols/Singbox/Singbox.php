@@ -341,7 +341,7 @@ class Singbox
         $array['password'] = $password;
         $array['congestion_control'] = $server['congestion_control'] ?? 'cubic';
         $array['udp_relay_mode'] = $server['udp_relay_mode'] ?? 'native';
-        $array['zero_rtt_handshake'] = $server['zero_rtt_handshake'] ? true : false;
+        $array['zero_rtt_handshake'] = !empty($server['zero_rtt_handshake']);
         $array['domain_resolver'] = 'local';
 
         $tlsSettings = $server['tls_settings'] ?? [];
@@ -349,7 +349,7 @@ class Singbox
             'enabled' => true,
             'insecure' => ($server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0)) == 1 ? true : false,
             'alpn' => ['h3'],
-            'disable_sni' => $server['disable_sni'] ? true : false,
+            'disable_sni' => !empty($server['disable_sni']),
         ];
         $array['tls']['server_name'] = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
 
@@ -434,14 +434,15 @@ class Singbox
             }
         }
 
+        $tlsSettings = $server['tls_settings'] ?? [];
         $array = [
             'tag' => $server['name'],
             'server' => $server['host'],
             'domain_resolver' => 'local',
             'tls' => [
                 'enabled' => true,
-                'insecure' => $server['insecure'] ? true : false,
-                'server_name' => $server['server_name']
+                'insecure' => !empty($server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0)),
+                'server_name' => $server['server_name'] ?? ($tlsSettings['server_name'] ?? ''),
             ]
         ];
 

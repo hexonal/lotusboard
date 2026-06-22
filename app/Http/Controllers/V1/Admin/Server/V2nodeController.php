@@ -159,23 +159,28 @@ class V2nodeController extends Controller
             $params['down_mbps'] = 0;
         }
 
+        $isEdit = (bool)$request->input('id');
+        $existing = $isEdit ? ServerV2node::find($request->input('id')) : null;
+        if ($isEdit && !$existing) {
+            abort(404, '服务器不存在');
+        }
+
         if (isset($params['obfs'])) {
-            if (!isset($params['obfs_password'])) $params['obfs_password'] = \Illuminate\Support\Str::random(16);
+            if (!isset($params['obfs_password'])) {
+                // 编辑场景沿用已有密码,避免覆盖在用客户端
+                $params['obfs_password'] = $existing->obfs_password ?? \Illuminate\Support\Str::random(16);
+            }
         } else {
             $params['obfs_password'] = null;
         }
 
-        if($params['protocol'] == 'shadowsocks' && !isset($params['cipher'])) {
+        if ($params['protocol'] == 'shadowsocks' && !isset($params['cipher'])) {
             $params['cipher'] = 'aes-128-gcm';
         }
 
-        if ($request->input('id')) {
-            $server = ServerV2node::find($request->input('id'));
-            if (!$server) {
-                abort(500, '服务器不存在');
-            }
+        if ($isEdit) {
             try {
-                $server->update($params);
+                $existing->update($params);
             } catch (\Exception $e) {
                 abort(500, '保存失败');
             }
@@ -206,6 +211,7 @@ class V2nodeController extends Controller
 
     public function update(Request $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $params = $request->validate([
             'show' => 'nullable|in:0,1',
         ]);

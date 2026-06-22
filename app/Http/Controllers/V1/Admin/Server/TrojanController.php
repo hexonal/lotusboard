@@ -52,6 +52,7 @@ class TrojanController extends Controller
 
     public function update(ServerTrojanUpdate $request)
     {
+        $request->validate(['id' => 'required|integer']);
         $params = $request->only([
             'show',
         ]);
