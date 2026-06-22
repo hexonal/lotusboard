@@ -227,9 +227,12 @@ class UniProxyController extends Controller
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
-                    // 对外统一 snake_case;同时补 tls_settings 以支持 v2node + TLS/Reality 配置
+                    // 双 key 向后兼容: networkSettings/tlsSettings 给 XrayR 0.9.4 (NewV2board parser 期望 camelCase),
+                    // network_settings/tls_settings 给 v2node/wyx fork (snake_case)。两个 key 指向同一份数据, 无副作用。
+                    'networkSettings' => $this->nodeInfo->networkSettings,
                     'network_settings' => $this->nodeInfo->networkSettings,
                     'tls' => $this->nodeInfo->tls,
+                    'tlsSettings' => $this->nodeInfo->tlsSettings,
                     'tls_settings' => $this->nodeInfo->tlsSettings,
                 ];
                 break;
@@ -237,18 +240,23 @@ class UniProxyController extends Controller
                 $response = [
                     'server_port' => $this->nodeInfo->server_port,
                     'network' => $this->nodeInfo->network,
+                    // 双 key 向后兼容, 同 vmess 分支理由
+                    'networkSettings' => $this->nodeInfo->network_settings,
                     'network_settings' => $this->nodeInfo->network_settings,
                     'tls' => $this->nodeInfo->tls,
                     'flow' => $this->nodeInfo->flow,
+                    'tlsSettings' => $this->nodeInfo->tls_settings,
                     'tls_settings' => $this->nodeInfo->tls_settings,
                     'encryption' => $this->nodeInfo->encryption,
-                    'encryption_settings' => $this->nodeInfo->encryption_settings
+                    'encryption_settings' => $this->nodeInfo->encryption_settings,
                 ];
                 break;
             case 'trojan':
                 $response = [
                     'host' => $this->nodeInfo->host,
                     'network' => $this->nodeInfo->network,
+                    // 双 key 向后兼容, 同 vmess 分支理由
+                    'networkSettings' => $this->nodeInfo->network_settings,
                     'network_settings' => $this->nodeInfo->network_settings,
                     'server_port' => $this->nodeInfo->server_port,
                     'server_name' => $this->nodeInfo->server_name,
