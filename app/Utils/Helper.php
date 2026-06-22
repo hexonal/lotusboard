@@ -211,11 +211,15 @@ class Helper
         $str = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode("{$cipher}:{$password}"));
         $add = self::formatHost($server['host']);
         $uri = "ss://{$str}@{$add}:{$server['port']}";
-        if ($server['obfs'] == 'http') {
-            $uri .= "?plugin=obfs-local;obfs=http;obfs-host={$server['obfs-host']};path={$server['obfs-path']}";
+        if (($server['obfs'] ?? null) == 'http') {
+            // 兼容 snake_case 与 dash 命名,并对 plugin query 内的值做 rawurlencode
+            $obfsHost = rawurlencode($server['obfs_host'] ?? $server['obfs-host'] ?? '');
+            $obfsPath = rawurlencode($server['obfs_path'] ?? $server['obfs-path'] ?? '/');
+            $uri .= "?plugin=obfs-local;obfs=http;obfs-host={$obfsHost};path={$obfsPath}";
         } else if ((($server['network'] ?? null) == 'http') && isset($server['network_settings']['Host'])) {
-            $path = $server['network_settings']['path'] ?? '/';
-            $uri .= "?plugin=obfs-local;obfs=tls;obfs-host={$server['network_settings']['Host']};path={$path}";
+            $obfsHost = rawurlencode($server['network_settings']['Host']);
+            $obfsPath = rawurlencode($server['network_settings']['path'] ?? '/');
+            $uri .= "?plugin=obfs-local;obfs=tls;obfs-host={$obfsHost};path={$obfsPath}";
         }
         return $uri."#{$name}\r\n";
     }
@@ -245,7 +249,8 @@ class Helper
         }
         
         $network = (string)$server['network'];
-        $networkSettings = $server['networkSettings'] ?? ($server['network_settings'] ?? []);
+        // 统一 snake_case 优先,与 configureNetworkSettings/其他 builder 一致
+        $networkSettings = $server['network_settings'] ?? ($server['networkSettings'] ?? []);
     
         switch ($network) {
             case 'tcp':
@@ -387,10 +392,15 @@ class Helper
         $parts = explode(",", $server['port']);
         $firstPort = strpos($parts[0], '-') !== false ? explode('-', $parts[0])[0] : $parts[0];
 
+        // 与 hy2/tuic/anytls 命名一致: 优先扁平列, 兜底到 tls_settings
+        $tlsSettings = $server['tls_settings'] ?? [];
+        $insecure = $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? 0);
+        $sni = $server['server_name'] ?? ($tlsSettings['server_name'] ?? '');
+
         $encodedPassword = rawurlencode($password);
         $uri = $server['version'] == 2 ?
-            "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$server['insecure']}&sni={$server['server_name']}" :
-            "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$encodedPassword}&insecure={$server['insecure']}&peer={$server['server_name']}&upmbps={$server['up_mbps']}&downmbps={$server['down_mbps']}";
+            "hysteria2://{$encodedPassword}@{$remote}:{$firstPort}/?insecure={$insecure}&sni={$sni}" :
+            "hysteria://{$remote}:{$firstPort}/?protocol=udp&auth={$encodedPassword}&insecure={$insecure}&peer={$sni}&upmbps={$server['up_mbps']}&downmbps={$server['down_mbps']}";
 
         if (isset($server['obfs']) && isset($server['obfs_password'])) {
             $obfs_password = rawurlencode($server['obfs_password']);
@@ -446,7 +456,8 @@ class Helper
         $name = self::encodeURIComponent($server['name']);
 
         $query = http_build_query($config);
-        return "tuic://{$password}:{$password}@{$remote}:{$port}?{$query}#{$name}\r\n";
+        $encodedPassword = rawurlencode($password);
+        return "tuic://{$encodedPassword}:{$encodedPassword}@{$remote}:{$port}?{$query}#{$name}\r\n";
     }
 
     public static function buildAnytlsUri($password, $server)
@@ -472,7 +483,7 @@ class Helper
             self::configureNetworkSettings($server, $config);
         }
         $query = http_build_query($config);
-        return "anytls://{$password}@{$remote}:{$port}/?{$query}#{$name}\r\n";
+        return "anytls://" . rawurlencode($password) . "@{$remote}:{$port}/?{$query}#{$name}\r\n";
     }
 
     /**

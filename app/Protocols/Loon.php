@@ -112,9 +112,9 @@ class Loon
             array_push($config, 'over-tls=true');
             if ($server['tlsSettings']) {
                 $tlsSettings = $server['tlsSettings'];
-                if (isset($tlsSettings['allowInsecure']) && !empty($tlsSettings['allowInsecure']))
-                    array_push($config, 'skip-cert-verify=' . ($tlsSettings['allowInsecure'] ? 'true' : 'false'));
-                if (isset($tlsSettings['serverName']) && !empty($tlsSettings['serverName']))
+                $allowInsecure = (int)($tlsSettings['allowInsecure'] ?? $tlsSettings['allow_insecure'] ?? 0);
+                array_push($config, 'skip-cert-verify=' . ($allowInsecure ? 'true' : 'false'));
+                if (!empty($tlsSettings['serverName']))
                     array_push($config, "tls-name={$tlsSettings['serverName']}");
             }
         }

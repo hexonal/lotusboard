@@ -142,52 +142,50 @@ class UniProxyController extends Controller
             }
             $key = 'ALIVE_IP_USER_' . $uid;
             // 按 user 维度加锁,消除多节点并发上报的 read-modify-write 竞态
-            $lock = Cache::lock('LOCK_' . $key, 5);
+            // 使用闭包形式,Laravel 内部只在持有锁时 release,避免 file cache driver 下误删他人锁
             try {
-                $lock->block(2);
-                $ips_array = Cache::get($key) ?? [];
-                if (!is_array($ips_array)) {
-                    $ips_array = [];
-                }
-
-                $ips_array[$this->nodeType . $this->nodeId] = [
-                    'aliveips' => $ips,
-                    'lastupdateAt' => $updateAt,
-                ];
-                // 清理 100s 过期的节点分片
-                foreach ($ips_array as $nodetypeid => $oldips) {
-                    if ($nodetypeid !== 'alive_ip' && is_array($oldips) && ($updateAt - ($oldips['lastupdateAt'] ?? 0) > 100)) {
-                        unset($ips_array[$nodetypeid]);
+                Cache::lock('LOCK_' . $key, 5)->block(2, function () use ($key, $ips, $updateAt, $deviceLimitMode) {
+                    $ips_array = Cache::get($key) ?? [];
+                    if (!is_array($ips_array)) {
+                        $ips_array = [];
                     }
-                }
 
-                $count = 0;
-                if ($deviceLimitMode === 1) {
-                    $ipmap = [];
-                    foreach ($ips_array as $nodetypeid => $newdata) {
-                        if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
-                            foreach ($newdata['aliveips'] as $ip_NodeId) {
-                                $ip = explode("_", $ip_NodeId)[0];
-                                $ipmap[$ip] = 1;
+                    $ips_array[$this->nodeType . $this->nodeId] = [
+                        'aliveips' => $ips,
+                        'lastupdateAt' => $updateAt,
+                    ];
+                    foreach ($ips_array as $nodetypeid => $oldips) {
+                        if ($nodetypeid !== 'alive_ip' && is_array($oldips) && ($updateAt - ($oldips['lastupdateAt'] ?? 0) > 100)) {
+                            unset($ips_array[$nodetypeid]);
+                        }
+                    }
+
+                    $count = 0;
+                    if ($deviceLimitMode === 1) {
+                        $ipmap = [];
+                        foreach ($ips_array as $nodetypeid => $newdata) {
+                            if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
+                                foreach ($newdata['aliveips'] as $ip_NodeId) {
+                                    $ip = explode("_", $ip_NodeId)[0];
+                                    $ipmap[$ip] = 1;
+                                }
+                            }
+                        }
+                        $count = count($ipmap);
+                    } else {
+                        foreach ($ips_array as $nodetypeid => $newdata) {
+                            if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
+                                $count += count($newdata['aliveips']);
                             }
                         }
                     }
-                    $count = count($ipmap);
-                } else {
-                    foreach ($ips_array as $nodetypeid => $newdata) {
-                        if ($nodetypeid !== 'alive_ip' && is_array($newdata) && isset($newdata['aliveips'])) {
-                            $count += count($newdata['aliveips']);
-                        }
-                    }
-                }
-                $ips_array['alive_ip'] = $count;
+                    $ips_array['alive_ip'] = $count;
 
-                Cache::put($key, $ips_array, 120);
+                    Cache::put($key, $ips_array, 120);
+                });
             } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
-                // 拿不到锁就跳过本次写入,下一次 push 还会再上报
+                // 拿不到锁就跳过本次写入,下次 push 还会再上报
                 continue;
-            } finally {
-                optional($lock)->release();
             }
         }
 

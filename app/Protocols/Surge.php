@@ -139,9 +139,10 @@ class Surge
             array_push($config, 'tls=true');
             if ($server['tlsSettings']) {
                 $tlsSettings = $server['tlsSettings'];
-                if (isset($tlsSettings['allowInsecure']) && !empty($tlsSettings['allowInsecure']))
-                    array_push($config, 'skip-cert-verify=' . ($tlsSettings['allowInsecure'] ? 'true' : 'false'));
-                if (isset($tlsSettings['serverName']) && !empty($tlsSettings['serverName']))
+                // 无条件输出 skip-cert-verify, 避免 Surge 默认严格校验导致 SNI 伪装节点连不上
+                $allowInsecure = (int)($tlsSettings['allowInsecure'] ?? $tlsSettings['allow_insecure'] ?? 0);
+                array_push($config, 'skip-cert-verify=' . ($allowInsecure ? 'true' : 'false'));
+                if (!empty($tlsSettings['serverName']))
                     array_push($config, "sni={$tlsSettings['serverName']}");
             }
         }

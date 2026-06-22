@@ -57,16 +57,15 @@ class GroupController extends Controller
 
     public function drop(Request $request)
     {
-        if ($request->input('id')) {
-            $serverGroup = ServerGroup::find($request->input('id'));
-            if (!$serverGroup) {
-                abort(500, '组不存在');
-            }
+        $request->validate(['id' => 'required|integer']);
+        $groupId = $request->input('id');
+        $serverGroup = ServerGroup::find($groupId);
+        if (!$serverGroup) {
+            abort(404, '组不存在');
         }
 
         // 检查全部 7 种协议的节点是否引用了该 group
         $serverService = new ServerService();
-        $groupId = $request->input('id');
         foreach ($serverService->getAllServers() as $server) {
             $serverGroupIds = is_array($server->group_id) ? $server->group_id : (array)$server->group_id;
             if (in_array($groupId, $serverGroupIds)) {
@@ -74,10 +73,10 @@ class GroupController extends Controller
             }
         }
 
-        if (Plan::where('group_id', $request->input('id'))->first()) {
+        if (Plan::where('group_id', $groupId)->first()) {
             abort(500, '该组已被订阅所使用，无法删除');
         }
-        if (User::where('group_id', $request->input('id'))->first()) {
+        if (User::where('group_id', $groupId)->first()) {
             abort(500, '该组已被用户所使用，无法删除');
         }
         return response([

@@ -392,8 +392,9 @@ class QuantumultX
 
         $tlsSettings = $server['tls_settings'] ?? [];
         $network = $server['network'] ?? 'tcp';
-        $sni = $tlsSettings['server_name'] ?? null;
-        $allowInsecure = $tlsSettings['allow_insecure'] ?? false;
+        // anytls 节点 SNI/insecure 常存放在扁平列, 与 trojan/hysteria 一致, 这里同时读两套来源
+        $sni = $server['server_name'] ?? ($tlsSettings['server_name'] ?? null);
+        $allowInsecure = $server['insecure'] ?? ($tlsSettings['allow_insecure'] ?? false);
 
         // tcp 配置
         if ($network === 'tcp') {

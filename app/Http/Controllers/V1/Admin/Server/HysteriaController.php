@@ -38,8 +38,9 @@ class HysteriaController extends Controller
             $params['down_mbps'] = 0;
         }
 
-        if(isset($params['obfs'])) {
-            if(!isset($params['obfs_password']))  $params['obfs_password'] = Helper::getServerKey($request->input('created_at'), 16);
+        if (isset($params['obfs'])) {
+            // 不要用客户端可控的 created_at 当熵源,改用安全随机
+            if (!isset($params['obfs_password'])) $params['obfs_password'] = \Illuminate\Support\Str::random(16);
         } else {
             $params['obfs_password'] = null;
         }
@@ -115,7 +116,8 @@ class HysteriaController extends Controller
             abort(404, '服务器不存在');
         }
         $data = $server->toArray();
-        unset($data['id'], $data['created_at'], $data['updated_at']);
+        unset($data['id'], $data['created_at'], $data['updated_at'], $data['parent_id'], $data['sort']);
+        if (!empty($data['name'])) $data['name'] .= ' (copy)';
         $data['show'] = 0;
         if (!ServerHysteria::create($data)) {
             abort(500, '复制失败');

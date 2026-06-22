@@ -18,12 +18,10 @@ class ShadowsocksTidalabController extends Controller
 {
     public function __construct(Request $request)
     {
-        $token = $request->input('token');
-        if (empty($token)) {
-            abort(500, 'token is null');
-        }
-        if ($token !== config('v2board.server_token')) {
-            abort(500, 'token is error');
+        $token = (string)$request->input('token', '');
+        $expected = (string)config('v2board.server_token', '');
+        if ($token === '' || $expected === '' || !hash_equals($expected, $token)) {
+            abort(403, 'token invalid');
         }
     }
 

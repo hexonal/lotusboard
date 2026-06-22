@@ -164,7 +164,8 @@ class VlessController extends Controller
             abort(404, '服务器不存在');
         }
         $data = $server->toArray();
-        unset($data['id'], $data['created_at'], $data['updated_at']);
+        unset($data['id'], $data['created_at'], $data['updated_at'], $data['parent_id'], $data['sort']);
+        if (!empty($data['name'])) $data['name'] .= ' (copy)';
         $data['show'] = 0;
         if (!ServerVless::create($data)) {
             abort(500, '复制失败');
