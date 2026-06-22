@@ -208,13 +208,16 @@ class ClashMeta
             $wsSettings = $server['networkSettings'] ?? ($server['network_settings'] ?? null);
             if ($wsSettings) {
                 $array['ws-opts'] = [];
-                if (isset($wsSettings['path']) && !empty($wsSettings['path']))
-                    $array['ws-opts']['path'] = $wsSettings['path'];
-                if (isset($wsSettings['headers']['Host']) && !empty($wsSettings['headers']['Host']))
+                if (!empty($wsSettings['path']))
+                    $array['ws-opts']['path'] = $wsSettings['path'] . '?ed=2048';
+                if (!empty($wsSettings['headers']['Host']))
                     $array['ws-opts']['headers'] = ['Host' => $wsSettings['headers']['Host']];
-                if (isset($wsSettings['security'])) 
+                if (isset($wsSettings['security']))
                     $array['cipher'] = $wsSettings['security'];
             }
+            // lotusnetwork 优化: 早期数据头, 减少 0-RTT 建连延迟
+            $array['max-early-data'] = 2048;
+            $array['early-data-header-name'] = 'Sec-WebSocket-Protocol';
         }
         if ($network === 'grpc') {
             $array['network'] = 'grpc';
