@@ -68,11 +68,10 @@ class ServerService
             if (strpos($vmess[$key]['port'], '-') !== false) {
                 $vmess[$key]['port'] = Helper::randomPort($vmess[$key]['port']);
             }
-            if ($vmess[$key]['parent_id']) {
-                $vmess[$key]['last_check_at'] = Cache::get(CacheKey::get('SERVER_VMESS_LAST_CHECK_AT', $vmess[$key]['parent_id']));
-            } else {
-                $vmess[$key]['last_check_at'] = Cache::get(CacheKey::get('SERVER_VMESS_LAST_CHECK_AT', $vmess[$key]['id']));
-            }
+            $checkId = $vmess[$key]['parent_id'] ?: $vmess[$key]['id'];
+            // 优先查 vmess cache; 兜底查 v2node cache (兼容 v2node 接管 vmess 落地节点的场景)
+            $vmess[$key]['last_check_at'] = Cache::get(CacheKey::get('SERVER_VMESS_LAST_CHECK_AT', $checkId))
+                ?? Cache::get(CacheKey::get('SERVER_V2NODE_LAST_CHECK_AT', $checkId));
             $servers[] = $vmess[$key]->toArray();
         }
 
