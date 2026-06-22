@@ -177,13 +177,16 @@ class Stash
             if (!empty($networkSettings)) {
                 $array['ws-opts'] = [];
                 if (!empty($networkSettings['path']))
-                    $array['ws-opts']['path'] = $networkSettings['path'];
+                    $array['ws-opts']['path'] = $networkSettings['path'] . '?ed=2048';
                 if (!empty($networkSettings['headers']['Host']))
                     $array['ws-opts']['headers'] = ['Host' => $networkSettings['headers']['Host']];
                 if (isset($networkSettings['security'])) {
                     $array['cipher'] = $networkSettings['security'];
                 }
             }
+            // lotusnetwork 优化: 0-RTT 早期数据头, 减少建连延迟
+            $array['max-early-data'] = 2048;
+            $array['early-data-header-name'] = 'Sec-WebSocket-Protocol';
         }
         if ($server['network'] === 'grpc') {
             $array['network'] = 'grpc';
