@@ -46,6 +46,8 @@ class ServerController extends Controller
             'tls_settings' => $this->nodeInfo->tls_settings,
             'encryption' => $this->nodeInfo->encryption,
             'encryption_settings' => $this->nodeInfo->encryption_settings,
+            'finalmask_tcp' => $this->nodeInfo->finalmask_tcp,
+            'finalmask_tcp_settings' => $this->nodeInfo->finalmask_tcp_settings,
             'flow' => $this->nodeInfo->flow,
             'cipher' => $this->nodeInfo->cipher,
             'congestion_control' => $this->nodeInfo->congestion_control,

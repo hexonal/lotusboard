@@ -29,6 +29,8 @@ class V2nodeController extends Controller
             'network_settings' => 'nullable|array',
             'encryption' => 'nullable',
             'encryption_settings' => 'nullable|array',
+            'finalmask_tcp' => 'nullable|in:xmc',
+            'finalmask_tcp_settings' => 'nullable|array',
             'disable_sni' => 'required|in:0,1',
             'udp_relay_mode' => 'nullable',
             'zero_rtt_handshake' => 'required|in:0,1',
@@ -146,6 +148,23 @@ class V2nodeController extends Controller
             if (!isset($params['encryption_settings']['password'])) {
                 $params['encryption_settings']['password'] = Helper::base64EncodeUrlSafe(SodiumCompat::crypto_box_publickey($keyPair));
             }
+        }
+        if (($params['finalmask_tcp'] ?? null) === 'xmc') {
+            if ($params['network'] !== 'tcp') {
+                abort(422, 'finalmask_tcp=xmc 需要 network=tcp');
+            }
+            $params['finalmask_tcp_settings'] = $params['finalmask_tcp_settings'] ?? [];
+            if (empty($params['finalmask_tcp_settings']['password'])) {
+                // xray-core 的 XMC.Build() 对空密码是硬报错的——这是真正的
+                // 预共享密钥（类似 REALITY 的 private_key），不是随便填的
+                // 混淆密码，所以这里跟 tls_settings/private_key 一样自动生成，
+                // 不能留空。hostname/usernames 留给 xray-core 自己的默认值
+                // （usernames 为空时用 "Dream"；hostname 服务端不校验）。
+                $params['finalmask_tcp_settings']['password'] = \Illuminate\Support\Str::random(32);
+            }
+        } else {
+            $params['finalmask_tcp'] = null;
+            $params['finalmask_tcp_settings'] = null;
         }
 
         if (isset($params['padding_scheme'])) {

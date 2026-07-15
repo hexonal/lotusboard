@@ -856,3 +856,7 @@ CREATE TABLE `v2_server_v2node` (
 
 ALTER TABLE `v2_server_route`
 CHANGE `action_value` `action_value` text NULL AFTER `action`;
+
+ALTER TABLE `v2_server_v2node`
+ADD `finalmask_tcp` varchar(32) DEFAULT NULL COMMENT 'TCP层finalmask类型(如xmc)' AFTER `encryption_settings`,
+ADD `finalmask_tcp_settings` text COMMENT 'finalmask配置(如xmc的hostname/usernames/password)' AFTER `finalmask_tcp`;

@@ -18,6 +18,7 @@ class ServerV2node extends Model
         'tls_settings' => 'array',
         'network_settings' => 'array',
         'encryption_settings' => 'array',
+        'finalmask_tcp_settings' => 'array',
         'padding_scheme' => 'array',
     ];
 }
