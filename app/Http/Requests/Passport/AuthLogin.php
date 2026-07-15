@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Passport;
 
+use App\Rules\NoCrlf;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AuthLogin extends FormRequest
@@ -14,7 +15,7 @@ class AuthLogin extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required|email:strict',
+            'email' => ['required', 'email:strict', new NoCrlf()],
             'password' => 'required|min:8'
         ];
     }

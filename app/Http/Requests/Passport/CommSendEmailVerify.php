@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Passport;
 
+use App\Rules\NoCrlf;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CommSendEmailVerify extends FormRequest
@@ -14,7 +15,7 @@ class CommSendEmailVerify extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required|email:strict'
+            'email' => ['required', 'email:strict', new NoCrlf()]
         ];
     }
 

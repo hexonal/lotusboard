@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Rules\NoCrlf;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UserUpdate extends FormRequest
@@ -14,7 +15,7 @@ class UserUpdate extends FormRequest
     public function rules()
     {
         return [
-            'email' => 'required|email:strict',
+            'email' => ['required', 'email:strict', new NoCrlf()],
             'password' => 'nullable|min:8',
             'transfer_enable' => 'numeric',
             'device_limit' => 'nullable|integer',

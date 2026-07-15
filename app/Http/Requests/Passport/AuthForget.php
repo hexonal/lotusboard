@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Passport;
 
+use App\Rules\NoCrlf;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AuthForget extends FormRequest
@@ -14,7 +15,7 @@ class AuthForget extends FormRequest
     public function rules()
     {
         return [
-            'email'      => 'required|string|email:strict|max:64',
+            'email'      => ['required', 'string', 'email:strict', 'max:64', new NoCrlf()],
             'password'   => 'required|string|min:8|max:64',
             'email_code' => 'required|string|digits:6',
         ];
