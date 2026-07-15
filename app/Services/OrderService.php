@@ -235,21 +235,31 @@ class OrderService
         if ($totalTraffic == 0) return;
     
         $remainingTrafficRatio = ($totalTraffic - $usedTraffic) / $totalTraffic;
-    
-        $avgPricePerSecond = $orderAmountSum / $orderRangeSecond;
-        if ($orderRangeSecond <= 31 * 86400) {
-            $remainingExpiredTimeRatio = $orderSurplusSecond / $orderRangeSecond;
-            $surplusRatio = min($remainingExpiredTimeRatio, $remainingTrafficRatio);
-            $orderSurplusAmount = $avgPricePerSecond * $orderSurplusSecond * $surplusRatio;
+
+        $resetTrafficMethod = Plan::resolveResetTrafficMethod(Plan::find($user->plan_id));
+        // reset_traffic_method 3/4 = 按年重置流量：折价不能再按"整月"切块计算（流量本来就不是按月归零的），
+        // 但仍要按 min(剩余时间比例, 剩余流量比例) 封顶——否则临近到期、流量却没怎么用的人会拿到接近全额退款，
+        // 而这部分流量反正也快到期作废了，不该被当成还没花的钱退回去
+        if (in_array($resetTrafficMethod, [3, 4], true)) {
+            $remainingTimeRatio = $orderSurplusSecond / $orderRangeSecond;
+            $surplusRatio = min($remainingTimeRatio, $remainingTrafficRatio);
+            $orderSurplusAmount = $orderAmountSum * $surplusRatio;
         } else {
-            $monthSeconds = 30 * 86400;
-            $firstMonthRemainSeconds = $orderSurplusSecond % $monthSeconds;
-            $surplusRatio = min($firstMonthRemainSeconds / $monthSeconds, $remainingTrafficRatio);
-            $laterMonthsSeconds = $orderSurplusSecond - $firstMonthRemainSeconds;
-            $orderSurplusAmount = $avgPricePerSecond * $monthSeconds * $surplusRatio +
-                                  $avgPricePerSecond * $laterMonthsSeconds;
+            $avgPricePerSecond = $orderAmountSum / $orderRangeSecond;
+            if ($orderRangeSecond <= 31 * 86400) {
+                $remainingExpiredTimeRatio = $orderSurplusSecond / $orderRangeSecond;
+                $surplusRatio = min($remainingExpiredTimeRatio, $remainingTrafficRatio);
+                $orderSurplusAmount = $avgPricePerSecond * $orderSurplusSecond * $surplusRatio;
+            } else {
+                $monthSeconds = 30 * 86400;
+                $firstMonthRemainSeconds = $orderSurplusSecond % $monthSeconds;
+                $surplusRatio = min($firstMonthRemainSeconds / $monthSeconds, $remainingTrafficRatio);
+                $laterMonthsSeconds = $orderSurplusSecond - $firstMonthRemainSeconds;
+                $orderSurplusAmount = $avgPricePerSecond * $monthSeconds * $surplusRatio +
+                                      $avgPricePerSecond * $laterMonthsSeconds;
+            }
         }
-    
+
         $order->surplus_amount = max($orderSurplusAmount, 0);
         $order->surplus_order_ids = array_column($orders, 'id');
     }

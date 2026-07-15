@@ -22,7 +22,7 @@ class ServerController extends Controller
         $user = User::find($request->user['id']);
         $servers = [];
         $userService = new UserService();
-        if ($userService->isAvailable($user)) {
+        if ($userService->isAvailable($user) && $userService->hasUnusedTraffic($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
         }

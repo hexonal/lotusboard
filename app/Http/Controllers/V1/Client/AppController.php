@@ -16,7 +16,7 @@ class AppController extends Controller
         $servers = [];
         $user = $request->user;
         $userService = new UserService();
-        if ($userService->isAvailable($user)) {
+        if ($userService->isAvailable($user) && $userService->hasUnusedTraffic($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
         }

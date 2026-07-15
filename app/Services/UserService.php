@@ -151,6 +151,15 @@ class UserService
         return false;
     }
 
+    // 专用于"是否还能继续拿到节点/订阅"场景：在 isAvailable() 的基础上再要求流量没用完。
+    // 不要把这个条件塞进 isAvailable() 本身——reset_price(流量重置包)购买、知识库、Telegram 绑定
+    // 等场景复用同一个 isAvailable()，其中 reset_price 购买恰恰是为流量用完但未到期的用户准备的，
+    // 混进流量判断会直接把这条购买路径堵死。
+    public function hasUnusedTraffic(User $user)
+    {
+        return ($user->u + $user->d) < $user->transfer_enable;
+    }
+
     public function getAvailableUsers()
     {
         return User::whereRaw('u + d < transfer_enable')

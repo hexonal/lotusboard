@@ -22,7 +22,7 @@ class ClientController extends Controller
         $user = $request->user;
         // account not expired and is not banned.
         $userService = new UserService();
-        if ($userService->isAvailable($user)) {
+        if ($userService->isAvailable($user) && $userService->hasUnusedTraffic($user)) {
             $serverService = new ServerService();
             $servers = $serverService->getAvailableServers($user);
             if($flag) {
