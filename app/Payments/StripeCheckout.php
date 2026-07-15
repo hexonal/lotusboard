@@ -103,7 +103,7 @@ class StripeCheckout {
                 $_SERVER['HTTP_STRIPE_SIGNATURE'],
                 $this->config['stripe_webhook_key']
             );
-        } catch (\Stripe\Error\SignatureVerification $e) {
+        } catch (\Stripe\Exception\SignatureVerificationException $e) {
             abort(400);
         }
 
