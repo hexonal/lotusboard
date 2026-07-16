@@ -161,6 +161,14 @@ class V2nodeController extends Controller
                 // 不能留空。hostname/usernames 留给 xray-core 自己的默认值
                 // （usernames 为空时用 "Dream"；hostname 服务端不校验）。
                 $params['finalmask_tcp_settings']['password'] = \Illuminate\Support\Str::random(32);
+            } elseif (strlen($params['finalmask_tcp_settings']['password']) < 16) {
+                // xmc 的 RSA 公钥是密码的确定性纯函数，且在密码校验之前就
+                // 明文发给任何未认证连接——捕获一次握手即可完全离线、不限
+                // 次数地枚举密码候选（这一点 xray-core 上游 PR#6210 本身
+                // 就是这么设计的，不是我们能单方面改协议修复的）。这个字段
+                // 的强度要求等同私钥口令，不是普通混淆密码，手动填短密码
+                // 直接拒绝，逼着用自动生成的随机值。
+                abort(422, 'finalmask_tcp_settings.password 至少需要 16 个字符（该密码的公钥会在认证前明文暴露，强度要求等同私钥口令，建议留空让系统自动生成）');
             }
         } else {
             $params['finalmask_tcp'] = null;
