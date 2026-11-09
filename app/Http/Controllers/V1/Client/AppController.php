@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\V1\Client;
 
 use App\Http\Controllers\Controller;
+use App\Protocols\ClashMeta;
 use App\Services\ServerService;
 use App\Services\UserService;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ class AppController extends Controller
         $user = $request->user;
         $userService = new UserService();
         if ($userService->isAvailable($user) && $userService->hasUnusedTraffic($user)) {
-            $serverService = new ServerService();
+            $serverService = app(ServerService::class);
             $servers = $serverService->getAvailableServers($user);
         }
         $defaultConfig = base_path() . '/resources/rules/app.clash.yaml';
@@ -31,6 +32,9 @@ class AppController extends Controller
         $proxies = [];
 
         foreach ($servers as $item) {
+            if (($item['type'] ?? null) === 'v2node' && isset($item['protocol'])) {
+                $item['type'] = $item['protocol'];
+            }
             if ($item['type'] === 'shadowsocks'
                 && in_array($item['cipher'], [
                     'aes-128-gcm',
@@ -46,15 +50,20 @@ class AppController extends Controller
                 array_push($proxy, \App\Protocols\Clash::buildVmess($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
+            if ($item['type'] === 'vless') {
+                array_push($proxy, ClashMeta::buildVless($user['uuid'], $item));
+                array_push($proxies, $item['name']);
+            }
             if ($item['type'] === 'trojan') {
                 array_push($proxy, \App\Protocols\Clash::buildTrojan($user['uuid'], $item));
                 array_push($proxies, $item['name']);
             }
         }
 
-        $config['proxies'] = array_merge($config['proxies'] ? $config['proxies'] : [], $proxy);
+        $config['proxies'] = array_merge($config['proxies'] ?? [], $proxy);
         foreach ($config['proxy-groups'] as $k => $v) {
-            $config['proxy-groups'][$k]['proxies'] = array_merge($config['proxy-groups'][$k]['proxies'], $proxies);
+            $config['proxy-groups'][$k]['name'] = str_replace('$app_name', config('v2board.app_name', 'V2Board'), $v['name']);
+            $config['proxy-groups'][$k]['proxies'] = array_merge($v['proxies'] ?? [], $proxies);
         }
         $yamlContent = Yaml::dump($config);
         return response($yamlContent, 200)
