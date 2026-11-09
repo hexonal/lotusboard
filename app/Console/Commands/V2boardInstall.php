@@ -64,7 +64,7 @@ class V2boardInstall extends Command
                 'DB_PASSWORD' => $this->ask('请输入数据库密码')
             ]);
             \Artisan::call('config:clear');
-            \Artisan::call('config:cache');
+            \App\Utils\ConfigCache::refresh();
             try {
                 DB::connection()->getPdo();
             } catch (\Exception $e) {

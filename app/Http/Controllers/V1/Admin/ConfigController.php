@@ -208,7 +208,7 @@ class ConfigController extends Controller
                 abort(500, '缓存清除失败，请卸载或检查opcache配置状态');
             }
         }
-        Artisan::call('config:cache');
+        \App\Utils\ConfigCache::refresh();
         if(Cache::has('WEBMANPID')) {
             $pid = Cache::get('WEBMANPID');
             Cache::forget('WEBMANPID');

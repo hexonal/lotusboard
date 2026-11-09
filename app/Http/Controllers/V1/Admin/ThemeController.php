@@ -78,7 +78,7 @@ class ThemeController extends Controller
         }
 
         try {
-            Artisan::call('config:cache');
+            \App\Utils\ConfigCache::refresh();
 //            sleep(2);
         } catch (\Exception $e) {
             abort(500, '保存失败');

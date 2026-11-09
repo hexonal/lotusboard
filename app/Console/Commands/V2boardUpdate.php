@@ -38,7 +38,7 @@ class V2boardUpdate extends Command
      */
     public function handle()
     {
-        \Artisan::call('config:cache');
+        \App\Utils\ConfigCache::refresh();
         DB::connection()->getPdo();
         $file = \File::get(base_path() . '/database/update.sql');
         if (!$file) {
